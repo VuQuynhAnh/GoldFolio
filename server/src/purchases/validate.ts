@@ -48,7 +48,7 @@ function isRealDate(s: string): boolean {
  * ngay dưới ô sai (BR-12). `currentProductId` = sản phẩm đang có của lần mua khi sửa:
  * sản phẩm đã biến mất khỏi bảng giá vẫn giữ được, nhưng không chọn mới được.
  */
-export function validatePurchase(db: Db, body: unknown, now: Date, currentProductId?: number): PurchaseInput {
+export async function validatePurchase(db: Db, body: unknown, now: Date, currentProductId?: number): Promise<PurchaseInput> {
   const b = (body ?? {}) as Record<string, unknown>;
   const fields: Record<string, string> = {};
 
@@ -56,9 +56,9 @@ export function validatePurchase(db: Db, body: unknown, now: Date, currentProduc
   const productId = Number(b.productId);
   if (!b.productId) fields.productId = "Vui lòng chọn sản phẩm";
   else {
-    const product = db.prepare("SELECT price_unit, active FROM products WHERE id = ?").get(productId) as
-      | { price_unit: PriceUnit; active: number }
-      | undefined;
+    const product = Number.isSafeInteger(productId)
+      ? await db.one<{ price_unit: PriceUnit; active: number }>("SELECT price_unit, active FROM products WHERE id = $1", [productId])
+      : undefined;
     if (!product) fields.productId = "Sản phẩm không hợp lệ";
     else if (!product.active && productId !== currentProductId) fields.productId = "Sản phẩm không còn trên bảng giá";
     else priceUnit = product.price_unit;

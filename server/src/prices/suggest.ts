@@ -15,9 +15,7 @@ export async function sellPriceAt(
   date: string,
   time: string | null,
 ): Promise<{ unitPrice: number; label: string } | null> {
-  const brand = db.prepare("SELECT b.name FROM products p JOIN brands b ON b.id = p.brand_id WHERE p.id = ?").get(productId) as
-    | { name: string }
-    | undefined;
+  const brand = await db.one<{ name: string }>("SELECT b.name FROM products p JOIN brands b ON b.id = p.brand_id WHERE p.id = $1", [productId]);
   if (!brand) return null;
   const p = await prices.priceAt(productId, date, time);
   if (!p || p.sell === null) return null;

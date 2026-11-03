@@ -8,32 +8,32 @@ let source: FakeSource;
 let prices: PriceService;
 let ring: number;
 
-beforeEach(() => {
-  db = testDb();
+beforeEach(async () => {
+  db = await testDb();
   source = new FakeSource();
   prices = new PriceService(db, [source]);
-  ring = productId(db, "phuquy", "nhan-tron-9999");
+  ring = await productId(db, "phuquy", "nhan-tron-9999");
 });
 
-const snapshotCount = () => (db.prepare("SELECT COUNT(*) AS n FROM price_snapshots").get() as { n: number }).n;
+const snapshotCount = async () => (await db.one<{ n: number }>("SELECT COUNT(*) AS n FROM price_snapshots"))!.n;
 
 describe("lấy và lưu giá hiện tại", () => {
   it("lưu ảnh chụp giá; bảng giống hệt lần trước thì không lưu thêm (PRICE-BR-002)", async () => {
     source.live = [goldSection("2026-11-02", "17:26", 13_550_000, 13_850_000)];
     await prices.refreshLive("phuquy");
     await prices.refreshLive("phuquy");
-    expect(snapshotCount()).toBe(1);
+    expect(await snapshotCount()).toBe(1);
 
     source.live = [goldSection("2026-11-02", "17:40", 13_600_000, 13_900_000)];
     await prices.refreshLive("phuquy");
-    expect(snapshotCount()).toBe(2);
+    expect(await snapshotCount()).toBe(2);
   });
 
   // SC: HOLD-UC01-SC18
   it("giá mới nhất kèm giờ nguồn công bố", async () => {
     source.live = [goldSection("2026-11-02", "17:26", 13_550_000, 13_850_000)];
     await prices.refreshLive("phuquy");
-    expect(prices.latest(ring)).toEqual({ buy: 13_550_000, sell: 13_850_000, sourceTime: "2026-11-02T10:26:00.000Z" });
+    expect(await prices.latest(ring)).toEqual({ buy: 13_550_000, sell: 13_850_000, sourceTime: "2026-11-02T10:26:00.000Z" });
   });
 
   it("nguồn lỗi thì giữ giá cũ, không ghi gì mới (PRICE-BR-003)", async () => {
@@ -43,22 +43,22 @@ describe("lấy và lưu giá hiện tại", () => {
     source.liveErrors = ["Bảng giá vàng trống"];
     const result = await prices.refreshLive("phuquy");
     expect(result.errors).toEqual(["Bảng giá vàng trống"]);
-    expect(prices.latest(ring)?.buy).toBe(13_550_000);
+    expect((await prices.latest(ring))?.buy).toBe(13_550_000);
   });
 
   // SC: HOLD-UC01-SC29
   it("sản phẩm không còn trong bảng giá mới nhất thì bị ẩn, có lại thì hiện lại", async () => {
-    const sjc = productId(db, "phuquy", "sjc");
-    const isActive = (id: number) => (db.prepare("SELECT active FROM products WHERE id = ?").get(id) as { active: number }).active;
+    const sjc = await productId(db, "phuquy", "sjc");
+    const isActive = async (id: number) => (await db.one<{ active: number }>("SELECT active FROM products WHERE id = $1", [id]))!.active;
     source.live = [goldSection("2026-11-02", "17:26", 1, 1, [{ name: "Vàng miếng SJC", unit: "chi", buy: 2, sell: 2 }])];
     await prices.refreshLive("phuquy");
-    expect(isActive(sjc)).toBe(1);
+    expect(await isActive(sjc)).toBe(1);
 
     source.live = [goldSection("2026-11-02", "17:40", 1, 1)];
     await prices.refreshLive("phuquy");
-    expect(isActive(sjc)).toBe(0);
+    expect(await isActive(sjc)).toBe(0);
     // Bạc không nằm trong phần "gold" nên không bị ẩn theo
-    expect(isActive(productId(db, "phuquy", "bac-thoi-1kg"))).toBe(1);
+    expect(await isActive(await productId(db, "phuquy", "bac-thoi-1kg"))).toBe(1);
   });
 });
 
@@ -110,7 +110,7 @@ describe("giá tại thời điểm mua (PRICE-BR-004)", () => {
     const today = new PriceService(db, [source], () => new Date("2026-11-05T03:00:00.000Z"));
     expect(await today.priceAt(ring, "2026-11-05", null)).toBeNull();
     expect(source.dailyCalls).toEqual([]);
-    expect(db.prepare("SELECT COUNT(*) AS n FROM daily_misses").get()).toEqual({ n: 0 });
+    expect(await db.one("SELECT COUNT(*) AS n FROM daily_misses")).toEqual({ n: 0 });
 
     // Hôm sau nguồn đã có giá ngày đó
     source.daily.set("2026-11-05", {
@@ -123,7 +123,7 @@ describe("giá tại thời điểm mua (PRICE-BR-004)", () => {
   });
 
   it("thương hiệu chưa có nguồn giá thì không hỏi nguồn nào", async () => {
-    const btmh = productId(db, "btmh", "nhan-tron");
+    const btmh = await productId(db, "btmh", "nhan-tron");
     expect(await prices.priceAt(btmh, "2026-11-01", null)).toBeNull();
     expect(source.dailyCalls).toEqual([]);
   });

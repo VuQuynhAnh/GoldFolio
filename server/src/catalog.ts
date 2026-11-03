@@ -1,5 +1,5 @@
 import type { PriceUnit } from "@goldfolio/shared";
-import { tx, type Db } from "./db";
+import type { Db } from "./db";
 
 // Danh mục thương hiệu và sản phẩm. Sửa danh sách ở đây rồi chạy `npm run seed`
 // (hoặc khởi động lại server): chỉ thêm/cập nhật, không xoá sản phẩm đã có lần mua.
@@ -128,25 +128,26 @@ export const CATALOG: BrandDef[] = [
 ];
 
 /** Thêm hoặc cập nhật thương hiệu/sản phẩm theo CATALOG. Không xoá gì, chạy lại nhiều lần được. */
-export function seedCatalog(db: Db, catalog: BrandDef[] = CATALOG): void {
-  const upsertBrand = db.prepare(`
-    INSERT INTO brands (code, name, is_default, has_source, sort_order) VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(code) DO UPDATE SET name = excluded.name, is_default = excluded.is_default,
-      has_source = excluded.has_source, sort_order = excluded.sort_order
-    RETURNING id`);
-  const upsertProduct = db.prepare(`
-    INSERT INTO products (brand_id, code, name, metal, price_unit, source, aliases_json, sort_order)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(brand_id, code) DO UPDATE SET name = excluded.name, metal = excluded.metal,
-      price_unit = excluded.price_unit, source = excluded.source,
-      aliases_json = excluded.aliases_json, sort_order = excluded.sort_order`);
-
-  tx(db, () => {
-    catalog.forEach((b, bi) => {
-      const { id } = upsertBrand.get(b.code, b.name, b.isDefault ? 1 : 0, b.hasSource ? 1 : 0, bi) as { id: number };
-      b.products.forEach((p, pi) => {
-        upsertProduct.run(id, p.code, p.name, p.metal, p.unit, b.hasSource ? "live" : "seed", JSON.stringify(p.aliases ?? []), pi);
-      });
-    });
+export async function seedCatalog(db: Db, catalog: BrandDef[] = CATALOG): Promise<void> {
+  await db.tx(async (t) => {
+    for (const [bi, b] of catalog.entries()) {
+      const brand = await t.one<{ id: number }>(
+        `INSERT INTO brands (code, name, is_default, has_source, sort_order) VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (code) DO UPDATE SET name = excluded.name, is_default = excluded.is_default,
+           has_source = excluded.has_source, sort_order = excluded.sort_order
+         RETURNING id`,
+        [b.code, b.name, b.isDefault ? 1 : 0, b.hasSource ? 1 : 0, bi],
+      );
+      for (const [pi, p] of b.products.entries()) {
+        await t.query(
+          `INSERT INTO products (brand_id, code, name, metal, price_unit, source, aliases_json, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (brand_id, code) DO UPDATE SET name = excluded.name, metal = excluded.metal,
+             price_unit = excluded.price_unit, source = excluded.source,
+             aliases_json = excluded.aliases_json, sort_order = excluded.sort_order`,
+          [brand!.id, p.code, p.name, p.metal, p.unit, b.hasSource ? "live" : "seed", JSON.stringify(p.aliases ?? []), pi],
+        );
+      }
+    }
   });
 }

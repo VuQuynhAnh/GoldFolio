@@ -15,12 +15,12 @@ let prices: PriceService;
 let app: Express;
 let ring: number;
 
-beforeEach(() => {
-  db = testDb();
+beforeEach(async () => {
+  db = await testDb();
   source = new FakeSource();
   prices = new PriceService(db, [source], () => NOW);
   app = createApp({ db, prices, now: () => NOW });
-  ring = productId(db, "phuquy", "nhan-tron-9999");
+  ring = await productId(db, "phuquy", "nhan-tron-9999");
 });
 
 async function login(email = "a@example.com") {
@@ -172,7 +172,7 @@ describe("để trống giá thì tự lấy giá ngày mua (BR-16)", () => {
   // SC: HOLD-UC01-SC36
   it("thương hiệu chưa có nguồn giá", async () => {
     const agent = await login();
-    const btmh = productId(db, "btmh", "nhan-tron");
+    const btmh = await productId(db, "btmh", "nhan-tron");
     const res = await agent.post("/api/purchases").send({ ...base, productId: btmh, weight: "1" }).expect(400);
     expect(res.body.fields.price).toBe(NOT_FOUND);
   });
@@ -187,7 +187,7 @@ describe("để trống giá thì tự lấy giá ngày mua (BR-16)", () => {
   // SC: HOLD-UC01-SC36
   it("sản phẩm chỉ có giá mua vào", async () => {
     const agent = await login();
-    const phiSjc = productId(db, "phuquy", "phi-sjc-9999");
+    const phiSjc = await productId(db, "phuquy", "phi-sjc-9999");
     source.live = [goldSection("2026-11-01", "09:00", 1, 1, [{ name: "Vàng 999.9 phi SJC", unit: "chi", buy: 12_700_000, sell: null }])];
     await prices.refreshLive("phuquy");
     const res = await agent.post("/api/purchases").send({ ...base, productId: phiSjc, weight: "1" }).expect(400);
@@ -263,7 +263,7 @@ describe("tài sản của tôi", () => {
   // SC: HOLD-UC01-SC16
   it("nhóm theo kim loại rồi sản phẩm; tổng quan bằng tổng các nhóm", async () => {
     const agent = await login();
-    const silver = productId(db, "phuquy", "bac-thoi-10-5-luong");
+    const silver = await productId(db, "phuquy", "bac-thoi-10-5-luong");
     source.live = [
       goldSection("2026-11-02", "09:00", 13_550_000, 13_850_000),
       {
@@ -292,7 +292,7 @@ describe("tài sản của tôi", () => {
   // SC: HOLD-UC01-SC17
   it("lần mua chưa có giá không vào tổng", async () => {
     const agent = await login();
-    const sjc = productId(db, "phuquy", "sjc");
+    const sjc = await productId(db, "phuquy", "sjc");
     await agent.post("/api/purchases").send({ ...base, productId: ring, weight: "1", unitPrice: 13_000_000 }).expect(201);
     await agent.post("/api/purchases").send({ ...base, productId: sjc, weight: "1", unitPrice: 14_000_000 }).expect(201);
     // Bảng giá chỉ có nhẫn tròn: SJC chưa có giá hiện tại
@@ -306,10 +306,11 @@ describe("tài sản của tôi", () => {
     const agent = await login();
     for (let i = 0; i < 300; i++) {
       const day = String((i % 28) + 1).padStart(2, "0");
-      db.prepare(
+      await db.query(
         `INSERT INTO purchases (user_id, product_id, weight_mg, input_unit, purchase_date, price_mode, unit_cost, total_cost, created_at, updated_at)
-         VALUES (1, ?, 3750, 'chi', ?, 'unit', 1, 1, '', '')`,
-      ).run(ring, `2026-10-${day}`);
+         VALUES (1, $1, 3750, 'chi', $2, 'unit', 1, 1, '', '')`,
+        [ring, `2026-10-${day}`],
+      );
     }
     const { body } = await agent.get("/api/portfolio");
     expect(body.items).toHaveLength(300);
@@ -319,7 +320,7 @@ describe("tài sản của tôi", () => {
   // SC: HOLD-UC01-SC29
   it("sản phẩm biến mất khỏi bảng giá: lần mua cũ hiện chưa có giá, không chọn được cho lần mua mới", async () => {
     const agent = await login();
-    const sjc = productId(db, "phuquy", "sjc");
+    const sjc = await productId(db, "phuquy", "sjc");
     await agent.post("/api/purchases").send({ ...base, productId: sjc, weight: "1", unitPrice: 1 }).expect(201);
     await setRingPrice(1, 1); // bảng giá mới không còn dòng SJC
     const { body } = await agent.get("/api/portfolio");
@@ -441,7 +442,7 @@ describe("biểu đồ lịch sử giá", () => {
 
   it("mặc định là sản phẩm có tổng tiền mua lớn nhất", async () => {
     const agent = await login();
-    const sjc = productId(db, "phuquy", "sjc");
+    const sjc = await productId(db, "phuquy", "sjc");
     await agent.post("/api/purchases").send({ ...base, productId: ring, weight: "1", unitPrice: 1_000 });
     await agent.post("/api/purchases").send({ ...base, productId: sjc, weight: "1", unitPrice: 9_000 });
     const { body } = await agent.get("/api/portfolio/history");

@@ -14,12 +14,15 @@
     "@goldfolio/shared": "*",
     "cheerio": "^1.0.0",
     "cookie-parser": "^1.4.7",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17",
     "@types/cookie-parser": "^1.4.8",
     "@types/express": "^4.17.21",
     "@types/node": "^22.13.1",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^6.0.2",
     "supertest": "^7.0.0",
     "tsx": "^4.19.2",

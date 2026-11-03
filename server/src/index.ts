@@ -1,14 +1,26 @@
 import { createApp } from "./app";
-import { openDb } from "./db";
+import { initSchema, poolDb, type Db } from "./db";
 import { seedCatalog } from "./catalog";
 import { PriceService } from "./prices/service";
 import { PhuQuySource } from "./prices/phuquy/adapter";
 import { startPriceScheduler } from "./prices/scheduler";
 
 const port = Number(process.env.PORT ?? 4000);
-const db = openDb(process.env.DB_PATH ?? "data/goldfolio.sqlite");
+// DATABASE_URL (vd chuỗi kết nối Supabase); không có thì pg tự đọc PGHOST/PGUSER/…
+let db: Db;
+try {
+  db = poolDb(process.env.DATABASE_URL, process.env.DB_SSL_CA);
+  await initSchema(db);
+} catch (err) {
+  console.error(
+    // ECONNREFUSED là AggregateError có message rỗng: lấy thêm mã lỗi
+    `Không kết nối được PostgreSQL: ${(err as Error).message || (err as { code?: string }).code || String(err)}\n` +
+      "Kiểm tra DATABASE_URL (và DB_SSL_CA nếu dùng Supabase) trong server/.env — xem README mục Cơ sở dữ liệu.",
+  );
+  process.exit(1);
+}
 // Danh mục thương hiệu/sản phẩm luôn đồng bộ theo catalog.ts mỗi lần khởi động
-seedCatalog(db);
+await seedCatalog(db);
 
 const sources = [new PhuQuySource()];
 const prices = new PriceService(db, sources);
