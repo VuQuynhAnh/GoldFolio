@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { formatDateTimeVn, formatDateVn } from "@goldfolio/shared";
 import type { Db } from "./db";
 import { HttpError, asyncHandler, currentUserId } from "./http";
 import type { PriceService } from "./prices/service";
+import { sellPriceAt } from "./prices/suggest";
 import { buildHistory, buildPortfolio } from "./portfolio/service";
 
 /** Thương hiệu và sản phẩm chọn được cho lần mua mới (HOLD-UC01/BR-1, BR-2, BR-15). */
@@ -45,20 +45,7 @@ export function pricesRouter(db: Db, prices: PriceService): Router {
       const date = String(req.query.date ?? "");
       const time = req.query.time ? String(req.query.time) : null;
       if (!productId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new HttpError(400, "Thiếu sản phẩm hoặc ngày mua");
-      const brand = db.prepare("SELECT b.name FROM products p JOIN brands b ON b.id = p.brand_id WHERE p.id = ?").get(productId) as
-        | { name: string }
-        | undefined;
-      const p = brand ? await prices.priceAt(productId, date, time) : null;
-      // Nguồn chỉ có giá mua vào thì không gợi ý được giá đã trả (PRICE-BR-006)
-      if (!brand || !p || p.sell === null) {
-        res.json({ unitPrice: null, label: "Chưa có giá tham khảo cho thời điểm này" });
-        return;
-      }
-      const label =
-        p.kind === "live" && p.sourceTime
-          ? `Giá ${brand.name} lúc ${formatDateTimeVn(p.sourceTime)}`
-          : `Giá ${brand.name} ngày ${formatDateVn(p.sourceDate)}`;
-      res.json({ unitPrice: p.sell, label });
+      res.json((await sellPriceAt(db, prices, productId, date, time)) ?? { unitPrice: null, label: "Chưa có giá tham khảo cho thời điểm này" });
     }),
   );
   return router;

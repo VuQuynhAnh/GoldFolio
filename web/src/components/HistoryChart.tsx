@@ -15,6 +15,8 @@ interface Datum {
 }
 
 const DAY_MS = 86_400_000;
+// Recharts nhận màu dạng chuỗi; giữ trùng với token trong index.css (R-UI-05)
+const C = { line: "#2c2c31", muted: "#a8a29e", gold: "#d4af37", goldSoft: "#f0d78c", gain: "#34d399", surface: "#18181b" };
 const toT = (ymd: string) => Date.parse(`${ymd}T00:00:00+07:00`);
 const short = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toLocaleString("vi-VN", { maximumFractionDigits: 2 })}tr` : n.toLocaleString("vi-VN"));
 const tickDate = (t: number) =>
@@ -38,7 +40,7 @@ export function HistoryChart({ history, onSelect }: { history: History; onSelect
       <label className="mb-3 block">
         <span className="sr-only">Sản phẩm</span>
         <select
-          className="h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base"
+          className="h-12 w-full rounded-xl border border-line bg-surface px-3 text-base"
           value={history.productId}
           onChange={(e) => onSelect(Number(e.target.value))}
         >
@@ -49,27 +51,28 @@ export function HistoryChart({ history, onSelect }: { history: History; onSelect
           ))}
         </select>
       </label>
-      <div className="h-[55dvh] min-h-64 rounded-2xl border border-stone-200 bg-white p-2">
+      <div className="h-[55dvh] min-h-64 rounded-2xl border border-line bg-surface p-2">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="#e7e5e4" vertical={false} />
-            <XAxis dataKey="t" type="number" scale="time" domain={domain} tickFormatter={tickDate} fontSize={12} minTickGap={24} />
-            <YAxis tickFormatter={short} fontSize={12} width={52} domain={["auto", "auto"]} />
-            <Tooltip content={<ChartTooltip unit={unit} today={history.today} />} />
+            <CartesianGrid stroke={C.line} vertical={false} />
+            <XAxis dataKey="t" type="number" scale="time" domain={domain} tickFormatter={tickDate} fontSize={12} minTickGap={24} tick={{ fill: C.muted }} stroke={C.line} />
+            <YAxis tickFormatter={short} fontSize={12} width={52} domain={["auto", "auto"]} tick={{ fill: C.muted }} stroke={C.line} />
+            <Tooltip content={<ChartTooltip unit={unit} today={history.today} />} cursor={{ stroke: C.line }} />
             {history.avgCost !== null && (
               <ReferenceLine
                 y={history.avgCost}
-                stroke="#8a6418"
+                stroke={C.goldSoft}
+                strokeOpacity={0.6}
                 strokeDasharray="6 4"
-                label={{ value: `Giá vốn ${short(history.avgCost)}`, position: "insideTopLeft", fontSize: 11, fill: "#8a6418" }}
+                label={{ value: `Giá vốn ${short(history.avgCost)}`, position: "insideTopLeft", fontSize: 11, fill: C.goldSoft }}
               />
             )}
-            <Line dataKey="bought" stroke="#c4912a" strokeWidth={2} dot={{ r: 5 }} activeDot={{ r: 7 }} connectNulls isAnimationActive={false} />
-            <Scatter dataKey="today" fill="#0f8a4f" shape="diamond" isAnimationActive={false} />
+            <Line dataKey="bought" stroke={C.gold} strokeWidth={2} dot={{ r: 5, fill: C.gold, stroke: C.surface }} activeDot={{ r: 7 }} connectNulls isAnimationActive={false} />
+            <Scatter dataKey="today" fill={C.gain} shape="diamond" isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-2 text-xs text-stone-500">
+      <p className="mt-2 text-xs text-muted">
         Chạm vào một điểm để xem chi tiết.{" "}
         {history.today ? `Điểm xanh: giá mua vào hôm nay, cập nhật lúc ${formatDateTimeVn(history.today.priceTime)}.` : "Chưa có giá hiện tại."}{" "}
         Đơn vị: VNĐ/{UNIT_LABEL[unit]}
@@ -92,7 +95,7 @@ function ChartTooltip({
   const d = payload?.[0]?.payload;
   if (!active || !d) return null;
   return (
-    <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm shadow">
+    <div className="rounded-lg border border-line bg-surface px-3 py-2 text-sm shadow">
       <div className="font-medium">{formatDateVn(d.date)}</div>
       {d.bought !== undefined ? (
         <>
@@ -103,7 +106,7 @@ function ChartTooltip({
       ) : (
         <>
           <div className="num">Giá mua vào: {formatVnd(d.today ?? 0)}</div>
-          {today && <div className="text-xs text-stone-500">Cập nhật lúc {formatDateTimeVn(today.priceTime)}</div>}
+          {today && <div className="text-xs text-muted">Cập nhật lúc {formatDateTimeVn(today.priceTime)}</div>}
         </>
       )}
     </div>

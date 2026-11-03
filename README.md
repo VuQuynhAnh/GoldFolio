@@ -8,7 +8,7 @@ Sổ tài sản vàng bạc cá nhân. Ghi từng lần mua (thương hiệu, s�
 |---|---|
 | `shared/` | Quy đổi khối lượng, tính tiền và lãi/lỗ, định dạng số và ngày giờ VN (dùng chung server + web) |
 | `server/` | Express + SQLite (`node:sqlite`), API `/api/*`, adapter giá Phú Quý, lịch lấy giá |
-| `web/` | Vite + React + Tailwind 4 + Recharts, giao diện mobile-first: 3 tab dưới (Tổng quan / Lịch sử / Lần mua), nút + để thêm, form toàn màn hình |
+| `web/` | Vite + React + Tailwind 4 + Recharts, giao diện tối mobile-first (màu theo token trong `web/src/index.css`, font Be Vietnam Pro đóng gói sẵn): 3 tab dưới (Tổng quan / Lịch sử / Lần mua), nút + để thêm, form toàn màn hình |
 
 ## Chạy
 
@@ -57,7 +57,7 @@ Mọi API trừ `/api/auth/*` cần đăng nhập (cookie `sid`). Lỗi trả `{
 | `POST /api/auth/register` · `login` · `logout`, `GET /api/auth/me` | Tài khoản |
 | `GET /api/brands` | Thương hiệu + sản phẩm chọn được |
 | `GET /api/prices/suggest?productId&date&time` | Gợi ý đơn giá mua (giá bán ra tại thời điểm mua) |
-| `GET /api/purchases/:id`, `POST /api/purchases`, `PUT/DELETE /api/purchases/:id` | Lần mua của mình |
+| `GET /api/purchases/:id`, `POST /api/purchases`, `PUT/DELETE /api/purchases/:id` | Lần mua của mình. Để trống `unitPrice` và `totalPrice` thì server tự lấy giá bán ra tại thời điểm mua (`priceSource: "auto"`, `priceNote` ghi nguồn); không tìm được giá thì 400 |
 | `GET /api/portfolio` | Tổng quan, nhóm kim loại/sản phẩm, danh sách lần mua kèm lãi/lỗ |
 | `GET /api/portfolio/history?productId` | Biểu đồ giá theo các mốc mua |
 

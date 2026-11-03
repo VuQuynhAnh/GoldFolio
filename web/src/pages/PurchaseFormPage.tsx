@@ -45,6 +45,9 @@ export function PurchaseFormPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Lần mua có giá tự lấy: ô giá để trống (lưu mà không nhập thì server lấy lại giá, BR-16),
+  // giá cũ hiện làm chữ mờ; người dùng gõ giá thì bỏ nhãn
+  const [autoPrice, setAutoPrice] = useState<{ note: string; unitCost: number } | null>(null);
   // Trang sửa: chỉ cho thao tác khi đã nạp xong lần mua (R-UI-04)
   const [load, setLoad] = useState<"loading" | "ready" | "notfound" | "error">(editId ? "loading" : "ready");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -78,8 +81,14 @@ export function PurchaseFormPage() {
         setPurchaseDate(p.purchaseDate);
         setPurchaseTime(p.purchaseTime ?? "");
         setPriceMode(p.priceMode);
-        setUnitPrice(String(p.unitCost));
-        setTotalPrice(String(p.totalCost));
+        if (p.priceSource === "auto") {
+          setAutoPrice({ note: p.priceNote, unitCost: p.unitCost });
+          setUnitPrice("");
+          setTotalPrice("");
+        } else {
+          setUnitPrice(String(p.unitCost));
+          setTotalPrice(String(p.totalCost));
+        }
         setNote(p.note);
         setLoad("ready");
       })
@@ -181,9 +190,9 @@ export function PurchaseFormPage() {
   };
 
   const header = (
-    <header className="safe-top sticky top-0 z-10 border-b border-stone-200 bg-white">
+    <header className="safe-top sticky top-0 z-10 border-b border-line bg-surface">
       <div className="flex h-12 items-center gap-1 px-1">
-        <button type="button" onClick={goBack} aria-label="Quay lại" className="flex h-11 w-11 items-center justify-center text-2xl text-stone-600">
+        <button type="button" onClick={goBack} aria-label="Quay lại" className="flex h-11 w-11 items-center justify-center text-2xl text-muted">
           ‹
         </button>
         <h1 className="text-lg font-semibold">{editId ? "Sửa lần mua" : "Thêm lần mua"}</h1>
@@ -193,11 +202,11 @@ export function PurchaseFormPage() {
 
   if (load === "notfound") {
     return (
-      <div className="mx-auto min-h-dvh max-w-md bg-white">
+      <div className="mx-auto min-h-dvh max-w-md bg-surface">
         {header}
         <div className="flex flex-col items-center px-4 pt-16 text-center">
-          <p className="mb-6 text-stone-600">Không tìm thấy lần mua</p>
-          <Link to="/lan-mua" replace className="flex min-h-12 items-center rounded-xl bg-gold-500 px-6 font-medium text-white">
+          <p className="mb-6 text-muted">Không tìm thấy lần mua</p>
+          <Link to="/lan-mua" replace className="flex min-h-12 items-center rounded-xl bg-gold px-6 font-medium text-bg">
             Về danh sách lần mua
           </Link>
         </div>
@@ -206,7 +215,7 @@ export function PurchaseFormPage() {
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto flex min-h-dvh max-w-md flex-col bg-white">
+    <form onSubmit={submit} className="mx-auto flex min-h-dvh max-w-md flex-col bg-surface">
       {header}
 
       {load === "error" && loadError && (
@@ -274,30 +283,35 @@ export function PurchaseFormPage() {
           hint={!editId && suggestLabel ? suggestLabel : shownUnit ? formatVnd(Number(shownUnit)) : undefined}
         >
           <input
-            className={inputClass + (priceMode === "unit" ? "" : " bg-stone-50 text-stone-500")}
+            className={inputClass + (priceMode === "unit" ? "" : " bg-surface-2 text-muted")}
             inputMode="numeric"
             value={shownUnit}
+            placeholder={autoPrice ? formatVnd(autoPrice.unitCost) : undefined}
             onChange={(e) => {
               setPriceMode("unit");
               setUnitPrice(digits(e.target.value));
+              setAutoPrice(null);
             }}
           />
         </Field>
         <Field
           label="Tổng tiền (VNĐ)"
           error={priceMode === "total" ? errors.price : undefined}
-          hint={shownTotal ? formatVnd(Number(shownTotal)) : "Nhập đơn giá hoặc tổng tiền, số kia tự tính"}
+          hint={shownTotal ? formatVnd(Number(shownTotal)) : "Để trống để tự lấy giá ngày mua"}
         >
           <input
-            className={inputClass + (priceMode === "total" ? "" : " bg-stone-50 text-stone-500")}
+            className={inputClass + (priceMode === "total" ? "" : " bg-surface-2 text-muted")}
             inputMode="numeric"
             value={shownTotal}
             onChange={(e) => {
               setPriceMode("total");
               setTotalPrice(digits(e.target.value));
+              setAutoPrice(null);
             }}
           />
         </Field>
+
+        {autoPrice && <p className="-mt-1 mb-3 text-sm text-gold">Giá tự lấy · {autoPrice.note}</p>}
 
         <Field label="Ghi chú" error={errors.note}>
           <input className={inputClass} maxLength={250} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -313,8 +327,8 @@ export function PurchaseFormPage() {
       </fieldset>
 
       {/* Nút Lưu dính đáy, chừa vùng an toàn; bàn phím mở thì trình duyệt tự đẩy lên */}
-      <div className="safe-bottom sticky bottom-0 border-t border-stone-200 bg-white px-4 pt-3">
-        <button disabled={busy || load !== "ready"} className="mb-3 min-h-12 w-full rounded-xl bg-gold-500 font-medium text-white active:bg-gold-700 disabled:opacity-60">
+      <div className="safe-bottom sticky bottom-0 border-t border-line bg-surface px-4 pt-3">
+        <button disabled={busy || load !== "ready"} className="mb-3 min-h-12 w-full rounded-xl bg-gold font-medium text-bg active:bg-gold-deep disabled:opacity-60">
           Lưu
         </button>
       </div>

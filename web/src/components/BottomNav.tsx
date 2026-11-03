@@ -19,7 +19,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Điều hướng chính"
-      className="safe-bottom fixed inset-x-0 bottom-0 z-10 mx-auto max-w-md border-t border-stone-200 bg-white"
+      className="safe-bottom fixed inset-x-0 bottom-0 z-10 mx-auto max-w-md border-t border-line bg-surface"
     >
       <div className="grid h-[var(--spacing-tabbar)] grid-cols-3">
         {tabs.map((t) => (
@@ -28,7 +28,7 @@ export function BottomNav() {
             to={t.to}
             end={t.end}
             className={({ isActive }) =>
-              cn("flex flex-col items-center justify-center gap-0.5 text-xs", isActive ? "font-medium text-gold-700" : "text-stone-500")
+              cn("flex flex-col items-center justify-center gap-0.5 text-xs", isActive ? "font-medium text-gold" : "text-muted")
             }
           >
             <svg aria-hidden viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

@@ -13,6 +13,8 @@ import {
 } from "@goldfolio/shared";
 import type { Db } from "../db";
 import { HttpError } from "../http";
+import type { PriceService } from "../prices/service";
+import { sellPriceAt } from "../prices/suggest";
 
 export interface PurchaseInput {
   productId: number;
@@ -24,7 +26,14 @@ export interface PurchaseInput {
   unitCost: number;
   totalCost: number;
   note: string;
+  /** manual = người dùng nhập; auto = để trống, chờ resolvePrice tự lấy (BR-16) */
+  priceSource: "manual" | "auto";
+  priceNote: string;
+  /** Đơn vị niêm yết của sản phẩm, để resolvePrice tính tổng tiền */
+  priceUnit: PriceUnit;
 }
+
+export const AUTO_PRICE_NOT_FOUND = "Không tìm được giá ngày này, vui lòng nhập giá mua";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -77,19 +86,22 @@ export function validatePurchase(db: Db, body: unknown, now: Date, currentProduc
     fields.purchaseTime = "Thời điểm mua không được sau hiện tại";
   }
 
-  // Nhập một trong hai: đơn giá hoặc tổng tiền; số kia tự tính (BR-5)
+  // Nhập một trong hai: đơn giá hoặc tổng tiền; số kia tự tính (BR-5).
+  // Để trống cả hai thì hệ thống tự lấy giá khi lưu (BR-16), xem resolvePrice.
   const priceMode = b.priceMode === "total" ? "total" : "unit";
   const rawPrice = priceMode === "unit" ? b.unitPrice : b.totalPrice;
   const price = rawPrice === undefined || rawPrice === null || rawPrice === "" ? null : Number(rawPrice);
-  if (price === null) fields.price = "Vui lòng nhập đơn giá hoặc tổng tiền";
-  else if (!Number.isFinite(price) || !Number.isInteger(price)) fields.price = "Giá mua phải là số nguyên";
-  else if (price <= 0) fields.price = "Giá mua phải lớn hơn 0";
-  else if (price > MAX_MONEY) fields.price = "Giá mua tối đa 1.000 tỷ đồng";
+  const priceSource = price === null ? "auto" : "manual";
+  if (price !== null) {
+    if (!Number.isFinite(price) || !Number.isInteger(price)) fields.price = "Giá mua phải là số nguyên";
+    else if (price <= 0) fields.price = "Giá mua phải lớn hơn 0";
+    else if (price > MAX_MONEY) fields.price = "Giá mua tối đa 1.000 tỷ đồng";
+  }
 
   // Số tự tính từ số đã nhập cũng phải trong giới hạn
   let unitCost = 0;
   let totalCost = 0;
-  if (!fields.price && !fields.weight && !fields.weightUnit && !fields.productId) {
+  if (price !== null && !fields.price && !fields.weight && !fields.weightUnit && !fields.productId) {
     unitCost = priceMode === "unit" ? price! : unitFromTotal(price!, weightMg, priceUnit);
     totalCost = priceMode === "total" ? price! : totalFromUnit(price!, weightMg, priceUnit);
     if (totalCost > MAX_MONEY) fields.price = "Tổng tiền tối đa 1.000 tỷ đồng";
@@ -102,5 +114,19 @@ export function validatePurchase(db: Db, body: unknown, now: Date, currentProduc
 
   if (Object.keys(fields).length) throw new HttpError(400, Object.values(fields)[0]!, fields);
 
-  return { productId, weightMg, inputUnit, purchaseDate, purchaseTime, priceMode, unitCost, totalCost, note };
+  return { productId, weightMg, inputUnit, purchaseDate, purchaseTime, priceMode, unitCost, totalCost, note, priceSource, priceNote: "", priceUnit };
+}
+
+/**
+ * Giá để trống thì lấy giá bán ra tại thời điểm mua làm đơn giá và ghi nhãn nguồn
+ * (HOLD-UC01/BR-16). Không tìm được giá thì không lưu, báo người dùng nhập tay.
+ */
+export async function resolvePrice(db: Db, prices: PriceService, input: PurchaseInput): Promise<PurchaseInput> {
+  if (input.priceSource === "manual") return input;
+  const found = await sellPriceAt(db, prices, input.productId, input.purchaseDate, input.purchaseTime);
+  if (!found) throw new HttpError(400, AUTO_PRICE_NOT_FOUND, { price: AUTO_PRICE_NOT_FOUND });
+  const totalCost = totalFromUnit(found.unitPrice, input.weightMg, input.priceUnit);
+  if (totalCost > MAX_MONEY) throw new HttpError(400, "Tổng tiền tối đa 1.000 tỷ đồng", { price: "Tổng tiền tối đa 1.000 tỷ đồng" });
+  if (totalCost <= 0) throw new HttpError(400, "Giá mua quá nhỏ so với khối lượng", { price: "Giá mua quá nhỏ so với khối lượng" });
+  return { ...input, priceMode: "unit", unitCost: found.unitPrice, totalCost, priceNote: found.label };
 }

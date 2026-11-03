@@ -1,17 +1,31 @@
 @import "tailwindcss";
 
+/*
+ * Bảng màu tối "sang trọng": nền đen than, điểm nhấn vàng kim. Component chỉ dùng các
+ * token này (bg-bg, bg-surface, text-ink, text-muted, text-gold…), không dùng màu cố định
+ * như stone-*, white (R-UI-05). Lãi/lỗ đạt tương phản ≥ 4.5:1 trên nền thẻ.
+ */
 @theme {
   --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
-  --color-gold-50: #fdf8ec;
-  --color-gold-100: #f8ebc7;
-  --color-gold-400: #d9a93a;
-  --color-gold-500: #c4912a;
-  --color-gold-700: #8a6418;
-  /* Lãi xanh, lỗ đỏ (HOLD-UC01/BR-10) */
-  --color-gain: #0f8a4f;
-  --color-loss: #d0342c;
+  --color-bg: #0f0f10;
+  --color-surface: #18181b;
+  --color-surface-2: #232327;
+  --color-line: #2c2c31;
+  --color-ink: #f4f1ea;
+  --color-muted: #a8a29e;
+  --color-gold: #d4af37;
+  --color-gold-deep: #b8942a;
+  --color-gold-soft: #f0d78c;
+  /* Lãi xanh, lỗ đỏ (HOLD-UC01/BR-10), sắc độ sáng cho nền tối */
+  --color-gain: #34d399;
+  --color-loss: #f87171;
   /* Chiều cao thanh tab dưới, dùng để chừa chỗ cho nội dung và nút + */
   --spacing-tabbar: 4rem;
+}
+
+:root {
+  /* Ô chọn ngày giờ, thanh cuộn, bàn phím của hệ thống cũng theo nền tối */
+  color-scheme: dark;
 }
 
 html,
@@ -22,7 +36,7 @@ body,
 }
 
 body {
-  @apply bg-stone-50 text-stone-900 antialiased;
+  @apply bg-bg font-sans text-ink antialiased;
   -webkit-tap-highlight-color: transparent;
 }
 

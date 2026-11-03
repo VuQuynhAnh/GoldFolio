@@ -75,6 +75,8 @@ export const item: PortfolioItem = {
   unitCost: 13_850_000,
   totalCost: 27_700_000,
   note: "",
+  priceSource: "manual",
+  priceNote: "",
   current: { buyPrice: 13_550_000, value: 27_100_000, pnl: -600_000, pct: -2.17, priceTime: "2026-11-02T10:26:00.000Z" },
 };
 

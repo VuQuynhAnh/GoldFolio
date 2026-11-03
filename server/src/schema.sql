@@ -85,6 +85,11 @@ CREATE TABLE IF NOT EXISTS purchases (
   unit_cost     INTEGER NOT NULL CHECK (unit_cost > 0),
   total_cost    INTEGER NOT NULL CHECK (total_cost > 0),
   note          TEXT NOT NULL DEFAULT '',
+  -- manual = người dùng nhập; auto = hệ thống tự lấy giá bán ra khi để trống (HOLD-UC01/BR-16).
+  -- Thêm cột mới ở đây thì khai báo cả trong migrate() của db.ts (R-DB-01)
+  price_source  TEXT NOT NULL DEFAULT 'manual' CHECK (price_source IN ('manual', 'auto')),
+  -- Nhãn nguồn của giá tự lấy, vd "Giá Phú Quý ngày 15/01/2025"; rỗng khi nhập tay
+  price_note    TEXT NOT NULL DEFAULT '',
   created_at    TEXT NOT NULL,
   updated_at    TEXT NOT NULL
 );

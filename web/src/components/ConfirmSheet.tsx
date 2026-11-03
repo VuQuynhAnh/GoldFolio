@@ -11,19 +11,19 @@ export function ConfirmSheet({
   onConfirm(): void;
 }) {
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40" onClick={onCancel}>
+    <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/60" onClick={onCancel}>
       <div
         role="dialog"
         aria-modal="true"
-        className="safe-bottom w-full max-w-md rounded-t-2xl bg-white px-4 pt-5"
+        className="safe-bottom w-full max-w-md rounded-t-2xl bg-surface px-4 pt-5"
         onClick={(e) => e.stopPropagation()}
       >
         <p className="mb-4 text-center">{message}</p>
         <div className="grid gap-2 pb-4">
-          <button onClick={onConfirm} className="min-h-12 rounded-xl bg-loss font-medium text-white">
+          <button onClick={onConfirm} className="min-h-12 rounded-xl bg-loss font-medium text-bg">
             {confirmLabel}
           </button>
-          <button onClick={onCancel} className="min-h-12 rounded-xl bg-stone-100 font-medium text-stone-700">
+          <button onClick={onCancel} className="min-h-12 rounded-xl bg-surface-2 font-medium text-ink">
             Huỷ
           </button>
         </div>

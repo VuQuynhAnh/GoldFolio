@@ -34,9 +34,9 @@ export function HistoryPage() {
       <h1 className="mb-3 text-lg font-semibold">Lịch sử giá</h1>
       {error && <LoadError message={error} onRetry={() => void load(productId)} />}
       {!history ? (
-        !error && <p className="text-stone-500">Đang tải…</p>
+        !error && <p className="text-muted">Đang tải…</p>
       ) : !history.productId ? (
-        <p className="pt-8 text-center text-stone-600">Chưa có lần mua nào để vẽ biểu đồ</p>
+        <p className="pt-8 text-center text-muted">Chưa có lần mua nào để vẽ biểu đồ</p>
       ) : (
         <HistoryChart history={history} onSelect={setProductId} />
       )}

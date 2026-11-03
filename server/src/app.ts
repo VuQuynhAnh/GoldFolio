@@ -24,7 +24,7 @@ export function createApp({ db, prices, now = () => new Date() }: AppDeps): Expr
   const auth = requireUser(db);
   app.use("/api/brands", auth, brandsRouter(db));
   app.use("/api/prices", auth, pricesRouter(db, prices));
-  app.use("/api/purchases", auth, purchasesRouter(db, now));
+  app.use("/api/purchases", auth, purchasesRouter(db, prices, now));
   app.use("/api/portfolio", auth, portfolioRouter(db, prices, now));
 
   app.use(errorHandler);

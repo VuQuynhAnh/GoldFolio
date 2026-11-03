@@ -12,21 +12,21 @@ export function PurchasesPage() {
       <h1 className="mb-3 text-lg font-semibold">Lần mua</h1>
       {error && <LoadError message={error} onRetry={() => void reload()} />}
       {!portfolio ? (
-        !error && <p className="text-stone-500">Đang tải…</p>
+        !error && <p className="text-muted">Đang tải…</p>
       ) : portfolio.items.length === 0 ? (
-        <p className="pt-8 text-center text-stone-600">Bạn chưa có lần mua nào</p>
+        <p className="pt-8 text-center text-muted">Bạn chưa có lần mua nào</p>
       ) : (
         <ul className="space-y-2">
           {portfolio.items.map((i) => (
             <li key={i.id}>
-              <Link to={`/sua/${i.id}`} className="block rounded-2xl border border-stone-200 bg-white p-4 active:bg-stone-50">
+              <Link to={`/sua/${i.id}`} className="block rounded-2xl border border-line bg-surface p-4 active:bg-surface-2">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate font-medium">{i.productName}</div>
-                    <div className="num text-xs text-stone-500">
+                    <div className="num text-xs text-muted">
                       {i.brandName} · {i.weightText}
                     </div>
-                    <div className="num text-xs text-stone-500">
+                    <div className="num text-xs text-muted">
                       {formatDateVn(i.purchaseDate)}
                       {i.purchaseTime && ` ${i.purchaseTime}`}
                     </div>
@@ -36,11 +36,13 @@ export function PurchasesPage() {
                     {i.current ? (
                       <Pnl pnl={i.current.pnl} pct={i.current.pct} className="text-xs" />
                     ) : (
-                      <span className="text-xs text-stone-500">Chưa có giá</span>
+                      <span className="text-xs text-muted">Chưa có giá</span>
                     )}
                   </div>
                 </div>
-                {i.note && <div className="mt-1 truncate text-xs text-stone-500">{i.note}</div>}
+                {/* Nhãn để biết giá này không phải số trên hoá đơn (BR-16) */}
+                {i.priceSource === "auto" && <div className="mt-1 truncate text-xs text-gold">Giá tự lấy · {i.priceNote}</div>}
+                {i.note && <div className="mt-1 truncate text-xs text-muted">{i.note}</div>}
               </Link>
             </li>
           ))}

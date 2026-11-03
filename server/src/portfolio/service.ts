@@ -27,6 +27,8 @@ interface Row {
   unit_cost: number;
   total_cost: number;
   note: string;
+  price_source: "manual" | "auto";
+  price_note: string;
 }
 
 interface Totals {
@@ -100,6 +102,8 @@ export function buildPortfolio(db: Db, prices: PriceService, userId: number) {
       unitCost: r.unit_cost,
       totalCost: r.total_cost,
       note: r.note,
+      priceSource: r.price_source,
+      priceNote: r.price_note,
       current: price
         ? { buyPrice: price.buy, value, pnl: value - r.total_cost, pct: pctOf(value - r.total_cost, r.total_cost), priceTime: price.sourceTime }
         : null,

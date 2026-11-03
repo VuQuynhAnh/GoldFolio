@@ -29,11 +29,11 @@ export function LoginPage({ mode }: { mode: "login" | "register" }) {
   };
 
   return (
-    // Nền trang trí; dự kiến thay bằng component nền của React Bits (xem README)
-    <div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--color-gold-100),_transparent_60%),linear-gradient(160deg,#fffaf0,#f5f5f4)] px-4">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-stone-200 bg-white/90 p-6 shadow-sm backdrop-blur">
-        <h1 className="text-2xl font-semibold text-gold-700">GoldFolio</h1>
-        <p className="mb-6 text-sm text-stone-500">Sổ tài sản vàng bạc của bạn</p>
+    // Nền tối có quầng vàng kim phía trên; dự kiến thay bằng component nền của React Bits (xem README)
+    <div className="flex min-h-dvh items-center justify-center bg-bg bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--color-gold)_22%,transparent),transparent_60%)] px-4">
+      <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-line bg-surface/90 p-6 shadow-2xl backdrop-blur">
+        <h1 className="text-2xl font-semibold text-gold">GoldFolio</h1>
+        <p className="mb-6 text-sm text-muted">Sổ tài sản vàng bạc của bạn</p>
         <Field label="Email" error={error?.fields.email}>
           <input className={inputClass} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </Field>
@@ -48,17 +48,17 @@ export function LoginPage({ mode }: { mode: "login" | "register" }) {
           />
         </Field>
         {error && !error.fields.email && !error.fields.password && <p className="mb-3 text-sm text-loss">{error.message}</p>}
-        <button disabled={busy} className="min-h-12 w-full rounded-xl bg-gold-500 font-medium text-white active:bg-gold-700 disabled:opacity-60">
+        <button disabled={busy} className="min-h-12 w-full rounded-xl bg-gold font-medium text-bg active:bg-gold-deep disabled:opacity-60">
           {mode === "login" ? "Đăng nhập" : "Đăng ký"}
         </button>
-        <p className="mt-4 text-center text-sm text-stone-500">
+        <p className="mt-4 text-center text-sm text-muted">
           {mode === "login" ? (
             <>
-              Chưa có tài khoản? <Link className="text-gold-700 underline" to="/dang-ky">Đăng ký</Link>
+              Chưa có tài khoản? <Link className="text-gold underline" to="/dang-ky">Đăng ký</Link>
             </>
           ) : (
             <>
-              Đã có tài khoản? <Link className="text-gold-700 underline" to="/dang-nhap">Đăng nhập</Link>
+              Đã có tài khoản? <Link className="text-gold underline" to="/dang-nhap">Đăng nhập</Link>
             </>
           )}
         </p>

@@ -10,7 +10,7 @@ import { PurchaseFormPage } from "./pages/PurchaseFormPage";
 
 function Protected() {
   const { user, loading } = useAuth();
-  if (loading) return <div className="p-8 text-center text-stone-500">Đang tải…</div>;
+  if (loading) return <div className="p-8 text-center text-muted">Đang tải…</div>;
   if (!user) return <Navigate to="/dang-nhap" replace />;
   return (
     <PortfolioProvider>

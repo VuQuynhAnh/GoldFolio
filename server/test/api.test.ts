@@ -129,12 +129,87 @@ describe("thêm lần mua", () => {
   });
 
   // SC: HOLD-UC01-SC8
-  it("thiếu giá hoặc giá bằng 0", async () => {
+  it("giá bằng 0", async () => {
     const agent = await login();
-    const empty = await agent.post("/api/purchases").send({ ...base, productId: ring, weight: "1" });
-    expect(empty.body.fields.price).toBe("Vui lòng nhập đơn giá hoặc tổng tiền");
     const zero = await agent.post("/api/purchases").send({ ...base, productId: ring, weight: "1", unitPrice: 0 });
     expect(zero.body.fields.price).toBe("Giá mua phải lớn hơn 0");
+  });
+});
+
+describe("để trống giá thì tự lấy giá ngày mua (BR-16)", () => {
+  const NOT_FOUND = "Không tìm được giá ngày này, vui lòng nhập giá mua";
+  const dailyRing = (date: string, sell: number) =>
+    source.daily.set(date, { sourceDate: date, sourceTime: null, rows: [{ name: "Nhẫn tròn Phú Quý 999.9", unit: "chi", buy: sell - 150_000, sell }] });
+
+  // SC: HOLD-UC01-SC34
+  it("lấy giá bán ra theo ngày của nguồn, tổng tiền tự tính, gắn nhãn", async () => {
+    const agent = await login();
+    dailyRing("2025-01-15", 8_610_000);
+    const res = await agent.post("/api/purchases").send({ ...base, productId: ring, weight: "2", purchaseDate: "2025-01-15" }).expect(201);
+    expect(res.body.purchase).toMatchObject({
+      priceMode: "unit",
+      unitCost: 8_610_000,
+      totalCost: 17_220_000,
+      priceSource: "auto",
+      priceNote: "Giá Phú Quý ngày 15/01/2025",
+    });
+    const pf = await agent.get("/api/portfolio");
+    expect(pf.body.items[0]).toMatchObject({ priceSource: "auto", priceNote: "Giá Phú Quý ngày 15/01/2025" });
+  });
+
+  // SC: HOLD-UC01-SC35
+  it("có giờ mua thì lấy ảnh chụp trước giờ đó", async () => {
+    const agent = await login();
+    await setRingPrice(13_500_000, 13_800_000, "09:00", "2026-11-01");
+    await setRingPrice(13_600_000, 13_900_000, "14:00", "2026-11-01");
+    const res = await agent
+      .post("/api/purchases")
+      .send({ ...base, productId: ring, weight: "1", purchaseDate: "2026-11-01", purchaseTime: "10:30" })
+      .expect(201);
+    expect(res.body.purchase).toMatchObject({ unitCost: 13_800_000, priceNote: "Giá Phú Quý lúc 09:00 01/11/2026" });
+  });
+
+  // SC: HOLD-UC01-SC36
+  it("thương hiệu chưa có nguồn giá", async () => {
+    const agent = await login();
+    const btmh = productId(db, "btmh", "nhan-tron");
+    const res = await agent.post("/api/purchases").send({ ...base, productId: btmh, weight: "1" }).expect(400);
+    expect(res.body.fields.price).toBe(NOT_FOUND);
+  });
+
+  // SC: HOLD-UC01-SC36
+  it("nguồn không có dữ liệu ngày mua", async () => {
+    const agent = await login();
+    const res = await agent.post("/api/purchases").send({ ...base, productId: ring, weight: "1", purchaseDate: "2024-01-01" }).expect(400);
+    expect(res.body.fields.price).toBe(NOT_FOUND);
+  });
+
+  // SC: HOLD-UC01-SC36
+  it("sản phẩm chỉ có giá mua vào", async () => {
+    const agent = await login();
+    const phiSjc = productId(db, "phuquy", "phi-sjc-9999");
+    source.live = [goldSection("2026-11-01", "09:00", 1, 1, [{ name: "Vàng 999.9 phi SJC", unit: "chi", buy: 12_700_000, sell: null }])];
+    await prices.refreshLive("phuquy");
+    const res = await agent.post("/api/purchases").send({ ...base, productId: phiSjc, weight: "1" }).expect(400);
+    expect(res.body.fields.price).toBe(NOT_FOUND);
+  });
+
+  // SC: HOLD-UC01-SC37
+  it("sửa và nhập giá tay thì bỏ nhãn giá tự lấy; sửa mà vẫn để trống thì lấy lại giá", async () => {
+    const agent = await login();
+    dailyRing("2025-01-15", 8_610_000);
+    dailyRing("2025-02-03", 8_900_000);
+    const { body } = await agent.post("/api/purchases").send({ ...base, productId: ring, weight: "1", purchaseDate: "2025-01-15" });
+    const id = body.purchase.id;
+
+    const again = await agent.put(`/api/purchases/${id}`).send({ ...base, productId: ring, weight: "1", purchaseDate: "2025-02-03" }).expect(200);
+    expect(again.body.purchase).toMatchObject({ unitCost: 8_900_000, priceSource: "auto", priceNote: "Giá Phú Quý ngày 03/02/2025" });
+
+    const manual = await agent
+      .put(`/api/purchases/${id}`)
+      .send({ ...base, productId: ring, weight: "1", purchaseDate: "2025-02-03", unitPrice: 13_700_000 })
+      .expect(200);
+    expect(manual.body.purchase).toMatchObject({ unitCost: 13_700_000, priceSource: "manual", priceNote: "" });
   });
 
   // SC: HOLD-UC01-SC33

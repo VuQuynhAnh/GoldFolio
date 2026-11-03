@@ -14,11 +14,11 @@ export function AppShell() {
   const showFab = !!portfolio && portfolio.items.length > 0;
 
   return (
-    <div className="mx-auto min-h-dvh max-w-md bg-stone-50">
-      <header className="safe-top sticky top-0 z-10 border-b border-stone-200 bg-white/90 backdrop-blur">
+    <div className="mx-auto min-h-dvh max-w-md bg-bg">
+      <header className="safe-top sticky top-0 z-10 border-b border-line bg-surface/90 backdrop-blur">
         <div className="flex h-12 items-center justify-between px-4">
-          <span className="font-semibold text-gold-700">GoldFolio</span>
-          <button onClick={() => void logout()} className="min-h-11 px-2 text-sm text-stone-500" title={user?.email}>
+          <span className="font-semibold text-gold">GoldFolio</span>
+          <button onClick={() => void logout()} className="min-h-11 px-2 text-sm text-muted" title={user?.email}>
             Đăng xuất
           </button>
         </div>
@@ -32,7 +32,7 @@ export function AppShell() {
         <Link
           to="/them"
           aria-label="Thêm lần mua"
-          className="fixed bottom-[calc(var(--spacing-tabbar)+env(safe-area-inset-bottom)+1rem)] right-[max(1rem,calc(50vw-14rem+1rem))] z-20 flex h-14 w-14 items-center justify-center rounded-full bg-gold-500 text-3xl leading-none text-white shadow-lg active:bg-gold-700"
+          className="fixed bottom-[calc(var(--spacing-tabbar)+env(safe-area-inset-bottom)+1rem)] right-[max(1rem,calc(50vw-14rem+1rem))] z-20 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-3xl leading-none text-bg shadow-lg active:bg-gold-deep"
         >
           +
         </Link>

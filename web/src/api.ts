@@ -66,6 +66,9 @@ export interface PortfolioItem {
   unitCost: number;
   totalCost: number;
   note: string;
+  /** auto = hệ thống tự lấy giá khi để trống (HOLD-UC01/BR-16) */
+  priceSource: "manual" | "auto";
+  priceNote: string;
   current: { buyPrice: number; value: number; pnl: number; pct: number; priceTime: string } | null;
 }
 
@@ -92,6 +95,8 @@ export interface Purchase {
   unitCost: number;
   totalCost: number;
   note: string;
+  priceSource: "manual" | "auto";
+  priceNote: string;
 }
 
 export interface History {
