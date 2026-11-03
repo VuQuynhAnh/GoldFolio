@@ -30,7 +30,7 @@ export function LoginPage({ mode }: { mode: "login" | "register" }) {
 
   return (
     // Nền trang trí; dự kiến thay bằng component nền của React Bits (xem README)
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--color-gold-100),_transparent_60%),linear-gradient(160deg,#fffaf0,#f5f5f4)] px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--color-gold-100),_transparent_60%),linear-gradient(160deg,#fffaf0,#f5f5f4)] px-4">
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-stone-200 bg-white/90 p-6 shadow-sm backdrop-blur">
         <h1 className="text-2xl font-semibold text-gold-700">GoldFolio</h1>
         <p className="mb-6 text-sm text-stone-500">Sổ tài sản vàng bạc của bạn</p>
@@ -48,7 +48,7 @@ export function LoginPage({ mode }: { mode: "login" | "register" }) {
           />
         </Field>
         {error && !error.fields.email && !error.fields.password && <p className="mb-3 text-sm text-loss">{error.message}</p>}
-        <button disabled={busy} className="w-full rounded-lg bg-gold-500 py-2.5 font-medium text-white hover:bg-gold-700 disabled:opacity-60">
+        <button disabled={busy} className="min-h-12 w-full rounded-xl bg-gold-500 font-medium text-white active:bg-gold-700 disabled:opacity-60">
           {mode === "login" ? "Đăng nhập" : "Đăng ký"}
         </button>
         <p className="mt-4 text-center text-sm text-stone-500">

@@ -8,7 +8,7 @@ Sổ tài sản vàng bạc cá nhân. Ghi từng lần mua (thương hiệu, s�
 |---|---|
 | `shared/` | Quy đổi khối lượng, tính tiền và lãi/lỗ, định dạng số và ngày giờ VN (dùng chung server + web) |
 | `server/` | Express + SQLite (`node:sqlite`), API `/api/*`, adapter giá Phú Quý, lịch lấy giá |
-| `web/` | Vite + React + Tailwind 4 + Recharts |
+| `web/` | Vite + React + Tailwind 4 + Recharts, giao diện mobile-first: 3 tab dưới (Tổng quan / Lịch sử / Lần mua), nút + để thêm, form toàn màn hình |
 
 ## Chạy
 
@@ -22,8 +22,8 @@ npm run dev                           # server :4000 + web :5173 (proxy /api)
 
 | Việc | Lệnh |
 |---|---|
-| Test (shared + server) | `npm test` |
-| Test một file | `cd server && npx vitest run test/api.test.ts` |
+| Test (shared + server + web) | `npm test` |
+| Test một file | `cd server && npx vitest run test/api.test.ts` · `cd web && npx vitest run test/shell.test.tsx` |
 | Kiểm tra kiểu | `npm run lint` |
 | Build web | `npm run build` |
 | Đồng bộ danh mục sản phẩm | `npm run seed` (chỉ thêm/cập nhật, không xoá) |

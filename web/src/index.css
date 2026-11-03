@@ -10,19 +10,31 @@
   /* Lãi xanh, lỗ đỏ (HOLD-UC01/BR-10) */
   --color-gain: #0f8a4f;
   --color-loss: #d0342c;
+  /* Chiều cao thanh tab dưới, dùng để chừa chỗ cho nội dung và nút + */
+  --spacing-tabbar: 4rem;
 }
 
 html,
 body,
 #root {
-  min-height: 100%;
+  /* dvh thay cho vh: trên điện thoại vh tính cả thanh địa chỉ nên bị tràn */
+  min-height: 100dvh;
 }
 
 body {
   @apply bg-stone-50 text-stone-900 antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Số tiền dùng chữ số đều nhau cho dễ so cột */
 .num {
   font-variant-numeric: tabular-nums;
+}
+
+/* Chừa vùng an toàn của iPhone (tai thỏ, thanh home) — R-UI-03 */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top);
 }
