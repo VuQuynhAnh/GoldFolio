@@ -8,7 +8,7 @@ Sổ tài sản vàng bạc cá nhân. Ghi từng lần mua (thương hiệu, s�
 |---|---|
 | `shared/` | Quy đổi khối lượng, tính tiền và lãi/lỗ, định dạng số và ngày giờ VN (dùng chung server + web) |
 | `server/` | Express + PostgreSQL (`pg`), API `/api/*`, adapter giá Phú Quý, lịch lấy giá |
-| `web/` | Vite + React + Tailwind 4 + Recharts, giao diện tối mobile-first (màu theo token trong `web/src/index.css`, font Be Vietnam Pro đóng gói sẵn): 3 tab dưới (Tổng quan / Lịch sử / Lần mua), nút + để thêm, form toàn màn hình |
+| `web/` | Vite + React + Tailwind 4 + Recharts, giao diện tối mobile-first (màu theo token trong `web/src/index.css`, font Be Vietnam Pro đóng gói sẵn): 3 tab dưới (Tổng quan / Biểu đồ / Chi tiết), nút + để thêm, form toàn màn hình |
 
 ## Chạy
 
