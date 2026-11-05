@@ -80,7 +80,15 @@ export interface Portfolio {
     metal: "gold" | "silver";
     label: string;
     weightText: string;
-    products: (Totals & { productId: number; productName: string; brandName: string; count: number; weightText: string })[];
+    products: (Totals & {
+      productId: number;
+      productName: string;
+      brandName: string;
+      count: number;
+      weightText: string;
+      /** Giá hiện tại theo đơn vị niêm yết; null = chưa có giá */
+      price: { buy: number; sell: number | null; unit: PriceUnit; time: string } | null;
+    })[];
   })[];
   items: PortfolioItem[];
 }

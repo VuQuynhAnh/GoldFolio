@@ -38,8 +38,12 @@ export function PurchaseFormPage() {
   const [lines, setLines] = useState<LineState[]>([]);
   const [purchaseDate, setPurchaseDate] = useState(vnDate());
   const [purchaseTime, setPurchaseTime] = useState("");
+  // Giờ mua hiếm khi cần nên ẩn sau nút, để hàng ngày mua không chật trên màn nhỏ (BR-1).
+  // Lần mua đang sửa có giờ, hoặc server báo lỗi ô giờ, thì luôn hiện.
+  const [showTime, setShowTime] = useState(false);
+  // Form không còn ô ghi chú (BR-1); lần mua cũ đã có ghi chú thì giữ nguyên khi sửa, không xoá trắng
   const [note, setNote] = useState("");
-  // Lỗi ô dùng chung (ngày, giờ, ghi chú) và lỗi theo dòng ("items.<i>.<ô>" của server)
+  // Lỗi ô dùng chung (ngày, giờ) và lỗi theo dòng ("items.<i>.<ô>" của server)
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -214,14 +218,32 @@ export function PurchaseFormPage() {
           </select>
         </Field>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Ngày mua" error={errors.purchaseDate}>
-            <input className={inputClass} type="date" max={vnDate()} value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
-          </Field>
-          <Field label="Giờ mua (không bắt buộc)" error={errors.purchaseTime}>
-            <input className={inputClass} type="time" value={purchaseTime} onChange={(e) => setPurchaseTime(e.target.value)} />
-          </Field>
-        </div>
+        <Field label="Ngày mua" error={errors.purchaseDate}>
+          <input className={inputClass} type="date" max={vnDate()} value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
+        </Field>
+        {showTime || purchaseTime !== "" || errors.purchaseTime ? (
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Field label="Giờ mua" error={errors.purchaseTime}>
+                <input className={inputClass} type="time" value={purchaseTime} onChange={(e) => setPurchaseTime(e.target.value)} />
+              </Field>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPurchaseTime("");
+                setShowTime(false);
+              }}
+              className="mb-3 min-h-12 px-2 text-sm text-muted"
+            >
+              Bỏ giờ mua
+            </button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setShowTime(true)} className="-mt-1 mb-3 min-h-11 text-sm text-gold">
+            + Thêm giờ mua
+          </button>
+        )}
 
         {lines.map((l, i) => (
           <PurchaseLine
@@ -247,10 +269,6 @@ export function PurchaseFormPage() {
             + Thêm sản phẩm
           </button>
         )}
-
-        <Field label="Ghi chú" error={errors.note}>
-          <input className={inputClass} maxLength={250} value={note} onChange={(e) => setNote(e.target.value)} />
-        </Field>
 
         {formError && <p className="mb-3 text-sm text-loss">{formError}</p>}
 

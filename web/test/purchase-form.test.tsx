@@ -51,6 +51,7 @@ describe("trang thêm tài sản", () => {
 
     await user.clear(unitInput());
     await user.type(unitInput(), "13700000");
+    await user.click(screen.getByRole("button", { name: "+ Thêm giờ mua" }));
     await user.type(screen.getByLabelText(/^Giờ mua/), "10:30");
     await waitFor(() => expect(unitInput().value).toBe("13.700.000"));
   });

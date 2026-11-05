@@ -20,6 +20,7 @@ export function MoneyInput({
   placeholder?: string;
   id?: string;
   "aria-label"?: string;
+  "aria-busy"?: boolean;
 }) {
   return (
     <div className="relative">

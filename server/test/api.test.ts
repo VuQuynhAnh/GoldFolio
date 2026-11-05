@@ -319,6 +319,26 @@ describe("tài sản của tôi", () => {
     expect(body.summary.value).toBe(gold.value + silv.value);
   });
 
+  // SC: HOLD-UC01-SC46
+  it("mỗi sản phẩm ở tổng quan kèm giá mua vào, bán ra hiện tại theo đơn vị niêm yết", async () => {
+    const agent = await login();
+    const sjc = await productId(db, "phuquy", "sjc");
+    await agent.post("/api/purchases").send({ ...base, productId: ring, weight: "1", unitPrice: 13_000_000 }).expect(201);
+    await agent.post("/api/purchases").send({ ...base, productId: sjc, weight: "1", unitPrice: 14_000_000 }).expect(201);
+    // Bảng giá chỉ có nhẫn tròn
+    await setRingPrice(13_550_000, 13_850_000);
+    const { body } = await agent.get("/api/portfolio");
+    const products = body.groups[0].products as { productId: number; price: unknown }[];
+    expect(products.find((p) => p.productId === ring)?.price).toEqual({
+      buy: 13_550_000,
+      sell: 13_850_000,
+      unit: "chi",
+      time: "2026-11-02T02:00:00.000Z",
+    });
+    // Sản phẩm chưa có trong bảng giá: không có giá hiện tại
+    expect(products.find((p) => p.productId === sjc)?.price).toBeNull();
+  });
+
   // SC: HOLD-UC01-SC17
   it("lần mua chưa có giá không vào tổng", async () => {
     const agent = await login();

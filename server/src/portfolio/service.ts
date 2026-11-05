@@ -117,12 +117,15 @@ export async function buildPortfolio(db: Db, prices: PriceService, userId: numbe
         const ofProduct = ofMetal.filter((i) => i.productId === pid);
         const first = ofProduct[0]!;
         const mg = ofProduct.reduce((s, i) => s + i.weightMg, 0);
+        const price = latest.get(pid) ?? null;
         return {
           productId: pid,
           productName: first.productName,
           brandName: first.brandName,
           count: ofProduct.length,
           weightText: formatWeight(mg, first.priceUnit, first.priceUnit),
+          // Giá cửa hàng đang niêm yết, để người dùng đối chiếu với bảng giá (HOLD-UC01/BR-10)
+          price: price ? { buy: price.buy, sell: price.sell, unit: first.priceUnit, time: price.sourceTime } : null,
           ...sum(ofProduct),
         };
       });

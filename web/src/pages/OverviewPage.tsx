@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { formatDateTimeVn, formatVnd } from "@goldfolio/shared";
+import { UNIT_LABEL, formatDateTimeVn, formatVnd } from "@goldfolio/shared";
 import type { Totals } from "../api";
 import { usePortfolio } from "../portfolio-context";
 import { LoadError, Pnl } from "../components/ui";
@@ -66,23 +66,37 @@ export function OverviewPage() {
           </div>
           <ul className="divide-y divide-line px-4 pb-1">
             {g.products.map((p) => (
-              <li key={p.productId} className="flex min-h-14 items-center justify-between gap-3 py-2">
-                <div className="min-w-0">
-                  <div className="truncate">{p.productName}</div>
-                  <div className="num text-xs text-muted">
-                    {p.brandName} · {p.weightText} · {p.count} lần mua
+              <li key={p.productId} className="py-2">
+                <div className="flex min-h-12 items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate">{p.productName}</div>
+                    <div className="num text-xs text-muted">
+                      {p.brandName} · {p.weightText} · {p.count} lần mua
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {p.excludedCount === p.count ? (
+                      <span className="text-sm text-muted">Chưa có giá</span>
+                    ) : (
+                      <>
+                        <div className="num text-sm">{formatVnd(p.value)}</div>
+                        <Pnl pnl={p.pnl} pct={p.pct} className="text-xs" />
+                      </>
+                    )}
                   </div>
                 </div>
-                <div className="shrink-0 text-right">
-                  {p.excludedCount === p.count ? (
-                    <span className="text-sm text-muted">Chưa có giá</span>
-                  ) : (
-                    <>
-                      <div className="num text-sm">{formatVnd(p.value)}</div>
-                      <Pnl pnl={p.pnl} pct={p.pct} className="text-xs" />
-                    </>
-                  )}
-                </div>
+                {/* Giá cửa hàng đang niêm yết; lãi/lỗ tính theo giá mua vào (BR-9, BR-10). Hàng riêng cho đủ chỗ trên màn nhỏ. */}
+                {p.price && (
+                  <div className="num mt-1 text-xs text-muted">
+                    Mua vào <span className="text-ink">{formatVnd(p.price.buy)}</span>
+                    {p.price.sell !== null && (
+                      <>
+                        {" · "}Bán ra <span className="text-ink">{formatVnd(p.price.sell)}</span>
+                      </>
+                    )}
+                    {" "}/{UNIT_LABEL[p.price.unit]}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

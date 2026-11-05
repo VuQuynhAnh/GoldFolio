@@ -50,7 +50,6 @@ export function PurchasesPage() {
                 </div>
                 {/* Nhãn để biết giá này không phải số trên hoá đơn (BR-16) */}
                 {i.priceSource === "auto" && <div className="mt-1 truncate text-xs text-gold">Giá tự lấy · {i.priceNote}</div>}
-                {i.note && <div className="mt-1 truncate text-xs text-muted">{i.note}</div>}
               </Link>
             </li>
           ))}

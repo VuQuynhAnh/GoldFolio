@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { baseHandlers, group, item, mockApi, renderAt } from "./helpers";
+import { baseHandlers, deferred, group, item, mockApi, renderAt } from "./helpers";
 
 vi.mock("../src/api", async (orig) => ({ ...(await orig<typeof import("../src/api")>()), api: vi.fn() }));
 
@@ -172,5 +172,96 @@ describe("lọc Vàng | Bạc | Tất cả (BR-17)", () => {
     await screen.findByText("Giá trị vàng");
     await user.click(screen.getByRole("button", { name: "Bạc" }));
     expect(screen.getByText("Chưa có tài sản bạc")).toBeTruthy();
+  });
+});
+
+describe("form gọn và giá hiện tại", () => {
+  // SC: HOLD-UC01-SC47
+  it("giờ mua ẩn sau nút: ngày mua đứng một hàng, bấm mới hiện ô giờ, bỏ thì gửi null", async () => {
+    const calls = mockApi({ ...baseHandlers(), "POST /purchases/batch": () => ({ purchases: [{ id: 1 }] }) });
+    const user = userEvent.setup();
+    renderAt("/them");
+    await ready();
+    expect(screen.queryByLabelText(/^Giờ mua/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "+ Thêm giờ mua" }));
+    await user.type(screen.getByLabelText(/^Giờ mua/), "10:30");
+    await user.click(screen.getByRole("button", { name: "Bỏ giờ mua" }));
+    expect(screen.queryByLabelText(/^Giờ mua/)).toBeNull();
+
+    await user.type(screen.getByLabelText(/^Đơn giá/), "13850000");
+    await user.click(screen.getByRole("button", { name: /^Lưu/ }));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    expect((calls.find((c) => c.method === "POST")!.body as { purchaseTime: unknown }).purchaseTime).toBeNull();
+  });
+
+  it("sửa lần mua đã có giờ thì ô giờ hiện sẵn", async () => {
+    mockApi({
+      ...baseHandlers(),
+      "GET /purchases/5": () => ({
+        purchase: { id: 5, productId: 11, brandId: 1, weight: 1, weightUnit: "chi", weightMg: 3750, purchaseDate: "2026-11-01", purchaseTime: "09:15", priceMode: "unit", unitCost: 13_850_000, totalCost: 13_850_000, note: "", priceSource: "manual", priceNote: "" },
+      }),
+    });
+    renderAt("/sua/5");
+    await waitFor(() => expect((screen.getByLabelText(/^Giờ mua/) as HTMLInputElement).value).toBe("09:15"));
+  });
+
+  // SC: HOLD-UC01-SC48
+  it("đang chờ giá gợi ý thì báo Đang lấy giá…; đổi đơn vị quy đổi ngay, không gọi lại", async () => {
+    const late = deferred<{ unitPrice: number; label: string }>();
+    const calls = mockApi({ ...baseHandlers(), "GET /prices/suggest": () => late.promise });
+    const user = userEvent.setup();
+    renderAt("/them");
+    await ready();
+    expect(await screen.findByText("Đang lấy giá…")).toBeTruthy();
+    await act(async () => late.resolve({ unitPrice: 13_900_000, label: "Giá Phú Quý lúc 14:00 01/11/2026" }));
+    expect(screen.queryByText("Đang lấy giá…")).toBeNull();
+    expect((screen.getByLabelText(/^Đơn giá \(VNĐ\/chỉ\)/) as HTMLInputElement).value).toBe("13.900.000");
+
+    const suggestCalls = calls.filter((c) => c.path.startsWith("/prices/suggest")).length;
+    await user.selectOptions(screen.getByLabelText(/^Đơn vị/), "luong");
+    expect((screen.getByLabelText(/^Đơn giá \(VNĐ\/lượng\)/) as HTMLInputElement).value).toBe("139.000.000");
+    expect(calls.filter((c) => c.path.startsWith("/prices/suggest")).length).toBe(suggestCalls);
+  });
+
+  // SC: HOLD-UC01-SC46
+  it("tổng quan: mỗi sản phẩm hiện giá mua vào, bán ra hiện tại", async () => {
+    const product = { productId: 11, productName: "Nhẫn tròn Phú Quý 999.9", brandName: "Phú Quý", count: 1, weightText: "1 chỉ" };
+    const gold = group("gold", { totalCost: 13_000_000, value: 13_550_000, pnl: 550_000, pct: 4.23 });
+    gold.products = [
+      { ...gold, ...product, price: { buy: 13_550_000, sell: 13_850_000, unit: "chi", time: "2026-11-02T02:00:00.000Z" } },
+      { ...gold, ...product, productId: 12, productName: "Vàng miếng SJC", excludedCount: 1, price: null },
+    ];
+    mockApi(baseHandlers({ summary: gold, groups: [gold], items: [item] }));
+    renderAt("/");
+    const row = (await screen.findByText("Nhẫn tròn Phú Quý 999.9")).closest("li")!;
+    expect(row.textContent).toContain("Mua vào 13.550.000 · Bán ra 13.850.000 /chỉ");
+    expect(screen.getByText("Vàng miếng SJC").closest("li")!.textContent).not.toContain("Mua vào");
+  });
+});
+
+describe("bỏ ghi chú", () => {
+  // SC: HOLD-UC01-SC49
+  it("form không có ô ghi chú; sửa lần mua cũ thì giữ nguyên ghi chú đã có", async () => {
+    const calls = mockApi({
+      ...baseHandlers(),
+      "GET /purchases/5": () => ({
+        purchase: { id: 5, productId: 11, brandId: 1, weight: 1, weightUnit: "chi", weightMg: 3750, purchaseDate: "2026-11-01", purchaseTime: null, priceMode: "unit", unitCost: 13_850_000, totalCost: 13_850_000, note: "Mua ở Phú Quý", priceSource: "manual", priceNote: "" },
+      }),
+      "PUT /purchases/5": () => ({ purchase: { id: 5 } }),
+    });
+    const user = userEvent.setup();
+    renderAt("/sua/5");
+    await waitFor(() => expect((screen.getByLabelText(/^Đơn giá/) as HTMLInputElement).value).toBe("13.850.000"));
+    expect(screen.queryByLabelText(/^Ghi chú/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: /^Lưu/ }));
+    await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
+    expect((calls.find((c) => c.method === "PUT")!.body as { note: string }).note).toBe("Mua ở Phú Quý");
+  });
+
+  it("danh sách lần mua không hiện ghi chú", async () => {
+    mockApi(baseHandlers({ summary: group("gold"), groups: [group("gold")], items: [{ ...item, note: "Mua ở Phú Quý" }] }));
+    renderAt("/lan-mua");
+    await screen.findByText("Nhẫn tròn Phú Quý 999.9");
+    expect(screen.queryByText("Mua ở Phú Quý")).toBeNull();
   });
 });
