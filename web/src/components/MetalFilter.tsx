@@ -1,18 +1,24 @@
 import { cn } from "@/lib/utils";
 import { usePortfolio, type MetalFilterValue } from "../portfolio-context";
 
+// "Tất cả" là mặc định nên đứng đầu (BR-17)
 const options: { value: MetalFilterValue; label: string }[] = [
+  { value: "all", label: "Tất cả" },
   { value: "gold", label: "Vàng" },
   { value: "silver", label: "Bạc" },
-  { value: "all", label: "Tất cả" },
 ];
 
-/** Lọc Vàng | Bạc | Tất cả ở đầu 3 tab; lựa chọn giữ nguyên khi chuyển tab (HOLD-UC01/BR-17). */
-export function MetalFilter() {
-  const { metal, setMetal } = usePortfolio();
+/**
+ * Lọc Vàng | Bạc | Tất cả ở đầu 3 tab; lựa chọn giữ nguyên khi chuyển tab (HOLD-UC01/BR-17).
+ * `withAll = false` (tab Biểu đồ): chỉ Vàng | Bạc, đang lọc Tất cả thì coi như Vàng.
+ */
+export function MetalFilter({ withAll = true }: { withAll?: boolean }) {
+  const { metal: chosen, setMetal } = usePortfolio();
+  const metal = withAll ? chosen : chartMetal(chosen);
+  const shown = withAll ? options : options.filter((o) => o.value !== "all");
   return (
-    <div role="group" aria-label="Lọc kim loại" className="mb-4 grid grid-cols-3 gap-1 rounded-xl bg-surface p-1">
-      {options.map((o) => (
+    <div role="group" aria-label="Lọc kim loại" className={cn("mb-4 grid gap-1 rounded-xl bg-surface p-1", withAll ? "grid-cols-3" : "grid-cols-2")}>
+      {shown.map((o) => (
         <button
           key={o.value}
           type="button"
@@ -25,6 +31,11 @@ export function MetalFilter() {
       ))}
     </div>
   );
+}
+
+/** Biểu đồ vẽ từng sản phẩm nên không có "Tất cả": đang lọc Tất cả thì xem Vàng (BR-17) */
+export function chartMetal(m: MetalFilterValue): "gold" | "silver" {
+  return m === "all" ? "gold" : m;
 }
 
 /** "vàng" / "bạc" cho câu thông báo theo kim loại đang lọc */

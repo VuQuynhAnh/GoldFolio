@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
-import { formatDateVn, formatVnd } from "@goldfolio/shared";
+import { UNIT_LABEL, formatDateVn, formatVnd } from "@goldfolio/shared";
 import { usePortfolio } from "../portfolio-context";
 import { LoadError, Pnl } from "../components/ui";
 import { METAL_NAME, MetalFilter } from "../components/MetalFilter";
 
 /**
- * Tab Lần mua: toàn bộ lần mua, mới nhất trước, không phân trang; chạm để sửa (HOLD-UC01/BR-10).
+ * Tab Chi tiết: toàn bộ lần mua, mới nhất trước, không phân trang; chạm để sửa (HOLD-UC01/BR-10).
  * Chỉ hiện lần mua của kim loại đang lọc (BR-17).
  */
 export function PurchasesPage() {
@@ -14,7 +14,7 @@ export function PurchasesPage() {
 
   return (
     <div>
-      <h1 className="mb-3 text-lg font-semibold">Lần mua</h1>
+      <h1 className="mb-3 text-lg font-semibold">Chi tiết</h1>
       {error && <LoadError message={error} onRetry={() => void reload()} />}
       {portfolio && portfolio.items.length > 0 && <MetalFilter />}
       {!portfolio ? (
@@ -48,8 +48,17 @@ export function PurchasesPage() {
                     )}
                   </div>
                 </div>
-                {/* Nhãn để biết giá này không phải số trên hoá đơn (BR-16) */}
-                {i.priceSource === "auto" && <div className="mt-1 truncate text-xs text-gold">Giá tự lấy · {i.priceNote}</div>}
+                {/* Đơn giá kèm nguồn: số người dùng nhập (đánh dấu) khác với giá hệ thống tự lấy, vốn không phải số trên hoá đơn (BR-16) */}
+                <div className="num mt-1 flex min-w-0 items-center gap-2 text-xs text-muted">
+                  <span className="shrink-0">
+                    Đơn giá <span className="text-ink">{formatVnd(i.unitCost)}</span>/{UNIT_LABEL[i.inputUnit]}
+                  </span>
+                  {i.priceSource === "auto" ? (
+                    <span className="truncate">Tự lấy · {i.priceNote}</span>
+                  ) : (
+                    <span className="shrink-0 rounded-full border border-gold/60 px-2 py-0.5 text-gold">Bạn nhập</span>
+                  )}
+                </div>
               </Link>
             </li>
           ))}

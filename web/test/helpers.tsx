@@ -76,6 +76,7 @@ export const item: PortfolioItem = {
   metal: "gold",
   priceUnit: "chi",
   weightText: "2 chỉ",
+  inputUnit: "chi",
   purchaseDate: "2026-11-01",
   purchaseTime: null,
   unitCost: 13_850_000,

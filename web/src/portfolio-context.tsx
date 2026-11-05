@@ -21,8 +21,8 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [error, setError] = useState<string | null>(null);
-  // Mặc định lọc Vàng; giữ trong context để chuyển tab không mất lựa chọn (BR-17)
-  const [metal, setMetal] = useState<MetalFilterValue>("gold");
+  // Mặc định Tất cả; giữ trong context để chuyển tab không mất lựa chọn (BR-17)
+  const [metal, setMetal] = useState<MetalFilterValue>("all");
 
   const reload = useCallback(async () => {
     try {

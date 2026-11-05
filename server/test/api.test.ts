@@ -160,6 +160,35 @@ describe("để trống giá thì tự lấy giá ngày mua (BR-16)", () => {
     expect(pf.body.items[0]).toMatchObject({ priceSource: "auto", priceNote: "Giá Phú Quý ngày 15/01/2025" });
   });
 
+  // SC: HOLD-UC01-SC55
+  it("lưu giá trùng giá hệ thống tại thời điểm mua thì là giá hệ thống; khác thì là người dùng nhập", async () => {
+    const agent = await login();
+    dailyRing("2025-01-15", 8_610_000);
+    const day = { ...base, productId: ring, purchaseDate: "2025-01-15" };
+    const same = await agent.post("/api/purchases").send({ ...day, weight: "2", unitPrice: 8_610_000 }).expect(201);
+    expect(same.body.purchase).toMatchObject({ unitCost: 8_610_000, priceSource: "auto", priceNote: "Giá Phú Quý ngày 15/01/2025" });
+    // Nhập theo lượng hay theo tổng tiền: so sau khi quy cùng đơn vị
+    const luong = await agent.post("/api/purchases").send({ ...day, weight: "1", weightUnit: "luong", unitPrice: 86_100_000 }).expect(201);
+    expect(luong.body.purchase.priceSource).toBe("auto");
+    const total = await agent.post("/api/purchases").send({ ...day, weight: "2", priceMode: "total", totalPrice: 17_220_000 }).expect(201);
+    expect(total.body.purchase.priceSource).toBe("auto");
+
+    const diff = await agent.post("/api/purchases").send({ ...day, weight: "2", unitPrice: 8_700_000 }).expect(201);
+    expect(diff.body.purchase).toMatchObject({ unitCost: 8_700_000, priceSource: "manual", priceNote: "" });
+    // Sửa lại về đúng giá hệ thống thì thành giá hệ thống, và ngược lại
+    const id = diff.body.purchase.id;
+    const back = await agent.put(`/api/purchases/${id}`).send({ ...day, weight: "2", unitPrice: 8_610_000 }).expect(200);
+    expect(back.body.purchase.priceSource).toBe("auto");
+    const edited = await agent.put(`/api/purchases/${id}`).send({ ...day, weight: "2", unitPrice: 8_600_000 }).expect(200);
+    expect(edited.body.purchase).toMatchObject({ unitCost: 8_600_000, priceSource: "manual" });
+  });
+
+  it("không tra được giá hệ thống thì giá nhập vẫn lưu, là người dùng nhập", async () => {
+    const agent = await login();
+    const res = await agent.post("/api/purchases").send({ ...base, productId: ring, weight: "1", unitPrice: 8_610_000, purchaseDate: "2025-01-15" }).expect(201);
+    expect(res.body.purchase.priceSource).toBe("manual");
+  });
+
   // SC: HOLD-UC01-SC44, HOLD-UC01-SC34
   it("tự lấy giá khi nhập theo lượng: đơn giá quy sang VNĐ/lượng", async () => {
     const agent = await login();
@@ -279,6 +308,14 @@ describe("tài sản của tôi", () => {
     const { body } = await agent.get("/api/portfolio");
     expect(body.items[0].current).toMatchObject({ value: 27_100_000, pnl: 100_000, pct: 0.37, priceTime: "2026-11-01T10:26:00.000Z" });
     expect(body.summary).toMatchObject({ totalCost: 27_000_000, value: 27_100_000, pnl: 100_000, pct: 0.37, excludedCount: 0 });
+  });
+
+  // SC: HOLD-UC01-SC53
+  it("mỗi lần mua kèm đơn vị đã nhập và nguồn đơn giá, để tab Chi tiết ghi đơn giá đúng đơn vị", async () => {
+    const agent = await login();
+    await agent.post("/api/purchases").send({ ...base, productId: ring, weight: "0,5", weightUnit: "luong", unitPrice: 138_500_000 }).expect(201);
+    const { body } = await agent.get("/api/portfolio");
+    expect(body.items[0]).toMatchObject({ inputUnit: "luong", unitCost: 138_500_000, priceSource: "manual" });
   });
 
   // SC: HOLD-UC01-SC15

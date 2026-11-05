@@ -40,12 +40,12 @@ describe("thanh tab và nút thêm", () => {
     const nav = await screen.findByRole("navigation", { name: "Điều hướng chính" });
     expect(nav.querySelectorAll("a")).toHaveLength(3);
 
-    await user.click(screen.getByRole("link", { name: "Lần mua" }));
-    expect(await screen.findByRole("heading", { name: "Lần mua" })).toBeTruthy();
+    await user.click(screen.getByRole("link", { name: "Chi tiết" }));
+    expect(await screen.findByRole("heading", { name: "Chi tiết" })).toBeTruthy();
     expect(screen.getByText("Nhẫn tròn Phú Quý 999.9")).toBeTruthy();
 
-    await user.click(screen.getByRole("link", { name: "Lịch sử" }));
-    expect(await screen.findByRole("heading", { name: "Lịch sử giá" })).toBeTruthy();
+    await user.click(screen.getByRole("link", { name: "Biểu đồ" }));
+    expect(await screen.findByRole("heading", { name: "Biểu đồ giá" })).toBeTruthy();
 
     await user.click(screen.getByRole("link", { name: "Thêm tài sản" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Thêm tài sản" })).toBeTruthy());
@@ -61,7 +61,7 @@ describe("thanh tab và nút thêm", () => {
       }),
     });
     const user = userEvent.setup();
-    renderAt("/lan-mua");
+    renderAt("/chi-tiet");
     await user.click(await screen.findByRole("link", { name: /Nhẫn tròn Phú Quý 999.9/ }));
     expect(await screen.findByRole("heading", { name: "Sửa lần mua" })).toBeTruthy();
   });

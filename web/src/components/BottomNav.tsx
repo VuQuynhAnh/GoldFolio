@@ -10,8 +10,8 @@ const icons = {
 
 const tabs = [
   { to: "/", end: true, label: "Tổng quan", icon: icons.overview },
-  { to: "/lich-su", end: false, label: "Lịch sử", icon: icons.history },
-  { to: "/lan-mua", end: false, label: "Lần mua", icon: icons.purchases },
+  { to: "/bieu-do", end: false, label: "Biểu đồ", icon: icons.history },
+  { to: "/chi-tiet", end: false, label: "Chi tiết", icon: icons.purchases },
 ];
 
 /** Thanh 3 tab cố định đáy, có nhãn chữ, mỗi tab cao ≥ 44px (R-UI-03). */

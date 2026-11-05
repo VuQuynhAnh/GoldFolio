@@ -22,7 +22,7 @@ const history = (productId: number) => ({
   avgCost: 13_000_000,
 });
 
-describe("tab Lịch sử", () => {
+describe("tab Biểu đồ", () => {
   // SC: HOLD-UC01-SC21
   // Hồi quy: xoá hết lần mua của sản phẩm đang xem thì biểu đồ từng biến mất hẳn
   it("sản phẩm đang xem không còn lần mua thì quay về sản phẩm mặc định", async () => {
@@ -34,7 +34,7 @@ describe("tab Lịch sử", () => {
       },
     });
     const user = userEvent.setup();
-    renderAt("/lich-su");
+    renderAt("/bieu-do");
     const select = (await screen.findByLabelText("Sản phẩm")) as HTMLSelectElement;
     await user.selectOptions(select, "12");
     await waitFor(() => expect((screen.getByLabelText("Sản phẩm") as HTMLSelectElement).value).toBe("11"));
@@ -52,7 +52,7 @@ describe("tab Lịch sử", () => {
       },
     });
     const user = userEvent.setup();
-    renderAt("/lich-su");
+    renderAt("/bieu-do");
     expect(await screen.findByText("Không kết nối được máy chủ")).toBeTruthy();
     fail = false;
     await user.click(screen.getByRole("button", { name: "Thử lại" }));
@@ -75,7 +75,7 @@ describe("tab Tổng quan", () => {
     expect(await screen.findByText("Không kết nối được máy chủ")).toBeTruthy();
     fail = false;
     await user.click(screen.getByRole("button", { name: "Thử lại" }));
-    expect(await screen.findByText("Giá trị vàng")).toBeTruthy();
+    expect(await screen.findByText("Giá trị hiện tại")).toBeTruthy();
     expect(screen.queryByText("Không kết nối được máy chủ")).toBeNull();
   });
 });

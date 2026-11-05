@@ -95,6 +95,8 @@ export async function buildPortfolio(db: Db, prices: PriceService, userId: numbe
       priceUnit: r.price_unit,
       weightMg: r.weight_mg,
       weightText: formatWeight(r.weight_mg, r.price_unit, r.input_unit),
+      // Đơn giá lưu theo đơn vị người dùng đã chọn khi nhập (HOLD-UC01/BR-5)
+      inputUnit: r.input_unit,
       purchaseDate: r.purchase_date,
       purchaseTime: r.purchase_time,
       priceMode: r.price_mode,

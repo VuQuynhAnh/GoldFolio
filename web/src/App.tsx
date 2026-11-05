@@ -20,7 +20,7 @@ function Protected() {
 }
 
 /**
- * 3 tab (Tổng quan / Lịch sử / Lần mua) nằm trong AppShell có thanh tab dưới;
+ * 3 tab (Tổng quan / Biểu đồ / Chi tiết) nằm trong AppShell có thanh tab dưới;
  * form thêm/sửa là trang riêng toàn màn hình, nên nút back của điện thoại quay về tab trước.
  */
 export function AppRoutes() {
@@ -31,8 +31,11 @@ export function AppRoutes() {
       <Route element={<Protected />}>
         <Route element={<AppShell />}>
           <Route index element={<OverviewPage />} />
-          <Route path="lich-su" element={<HistoryPage />} />
-          <Route path="lan-mua" element={<PurchasesPage />} />
+          <Route path="bieu-do" element={<HistoryPage />} />
+          <Route path="chi-tiet" element={<PurchasesPage />} />
+          {/* Tên tab cũ: giữ link đã lưu trên điện thoại vẫn mở đúng tab */}
+          <Route path="lich-su" element={<Navigate to="/bieu-do" replace />} />
+          <Route path="lan-mua" element={<Navigate to="/chi-tiet" replace />} />
         </Route>
         <Route path="them" element={<PurchaseFormPage />} />
         <Route path="sua/:id" element={<PurchaseFormPage />} />

@@ -86,7 +86,7 @@ export async function initSchema(db: Db): Promise<void> {
  * bảng cũ không tự có cột mới; mọi cột thêm sau phải khai báo cả ở đây (R-DB-01).
  */
 export async function migrate(db: Db): Promise<void> {
-  // Nguồn giá của lần mua: nhập tay hay hệ thống tự lấy (HOLD-UC01/BR-16). Lần mua cũ là nhập tay.
+  // Nguồn giá của lần mua: nhập tay hay hệ thống tự lấy (HOLD-UC01/BR-16).
   await db.exec(`
     ALTER TABLE purchases ADD COLUMN IF NOT EXISTS price_source TEXT NOT NULL DEFAULT 'manual'
       CHECK (price_source IN ('manual', 'auto'));
@@ -106,6 +106,15 @@ export async function migrate(db: Db): Promise<void> {
          / pu.weight_mg))
      FROM products p
      WHERE p.id = pu.product_id AND pu.input_unit <> p.price_unit`,
+  );
+
+  // User chốt 2026-11-05: mọi lần mua có từ trước coi là giá hệ thống, chưa xác nhận; người dùng
+  // mở sửa và bấm Lưu thì thành giá người dùng nhập (HOLD-UC01/BR-16). Số tiền giữ nguyên. Chạy
+  // một lần: DB mới chạy lúc chưa có dòng nào nên không ảnh hưởng lần mua nhập sau này.
+  await runOnce(
+    db,
+    "du-lieu-cu-la-gia-he-thong",
+    `UPDATE purchases SET price_source = 'auto', price_note = 'Dữ liệu cũ, chưa xác nhận' WHERE price_source = 'manual'`,
   );
 }
 

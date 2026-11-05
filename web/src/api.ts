@@ -63,6 +63,8 @@ export interface PortfolioItem {
   metal: "gold" | "silver";
   priceUnit: PriceUnit;
   weightText: string;
+  /** Đơn vị đã chọn khi nhập; `unitCost` tính theo đơn vị này */
+  inputUnit: WeightUnit;
   purchaseDate: string;
   purchaseTime: string | null;
   unitCost: number;

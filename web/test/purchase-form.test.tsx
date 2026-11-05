@@ -83,7 +83,7 @@ describe("trang thêm tài sản", () => {
     await user.type(screen.getByLabelText(/^Khối lượng/), "2");
     await waitFor(() => expect(unitInput().value).toBe("13.900.000"));
     await user.click(screen.getByRole("button", { name: "Lưu" }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Lần mua" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Chi tiết" })).toBeTruthy());
     const body = calls.find((c) => c.method === "POST")?.body as { items: unknown[] };
     expect(body.items).toHaveLength(1);
     expect(body.items[0]).toMatchObject({ productId: 11, weight: "2", weightUnit: "chi", unitPrice: 13_900_000 });

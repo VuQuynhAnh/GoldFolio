@@ -51,7 +51,7 @@ interface Props {
   products: Product[];
   purchaseDate: string;
   purchaseTime: string;
-  /** Trang sửa: không gợi ý lại giá (BR-7) */
+  /** Trang sửa: mở ra giữ giá đã lưu, chỉ gợi ý lại khi người dùng đổi sản phẩm/ngày/giờ (BR-7) */
   editing: boolean;
   errors: Record<string, string>;
   /** Số thứ tự hiển thị khi có nhiều sản phẩm; undefined = form một sản phẩm */
@@ -63,14 +63,20 @@ export function PurchaseLine({ line, onChange, products, purchaseDate, purchaseT
   const [suggestLabel, setSuggestLabel] = useState<string | null>(null);
   // Đang chờ giá gợi ý: hiện "Đang lấy giá…" để người dùng biết ô giá sắp tự điền (BR-6)
   const [loading, setLoading] = useState(false);
-  // Số vừa được gợi ý: ô giá còn đúng số này nghĩa là người dùng chưa sửa tay (BR-6)
-  const lastSuggested = useRef<string | null>(null);
+  // Số vừa được gợi ý: ô giá còn đúng số này nghĩa là người dùng chưa sửa tay (BR-6).
+  // Trang sửa: giá đã lưu coi như giá gợi ý, chưa gõ lại thì đổi sản phẩm/ngày sẽ thay (BR-7)
+  const lastSuggested = useRef<string | null>(editing && line.unitPrice ? line.unitPrice : null);
   // Giá gợi ý gốc theo đơn vị niêm yết, để đổi đơn vị thì quy đổi ngay, không gọi lại server
   const suggestedRaw = useRef<number | null>(null);
   // Giá trị hiện tại của dòng cho kết quả gợi ý về muộn: người dùng có thể đã gõ trong lúc
   // chờ, so với giá trị lúc gửi yêu cầu sẽ ghi đè số vừa gõ (R-UI-02)
   const lineNow = useRef(line);
   lineNow.current = line;
+  // Trang sửa: sản phẩm + thời điểm lúc mở. Còn khớp thì không gợi ý (giữ giá đã lưu, BR-7);
+  // so theo giá trị chứ không theo "lần chạy đầu" vì StrictMode chạy effect hai lần khi mount
+  const openedWith = useRef<string | null>(editing ? `${line.productId}|${purchaseDate}|${purchaseTime}` : null);
+  // Đơn vị trước khi đổi, để quy đổi đơn giá đang có sang đơn vị mới (BR-5)
+  const prevUnit = useRef(line.weightUnit);
 
   const product = products.find((p) => p.id === line.productId);
   // Đơn vị niêm yết của sản phẩm: giá gợi ý của nguồn tính theo đơn vị này
@@ -78,23 +84,30 @@ export function PurchaseLine({ line, onChange, products, purchaseDate, purchaseT
   // Đơn giá trên form theo đơn vị khối lượng đang chọn (BR-5)
   const unit = line.weightUnit;
 
-  // Ô giá chưa bị sửa tay: còn trống hoặc còn đúng số vừa gợi ý (BR-6)
-  const untouched = (cur: LineState) => cur.priceMode === "unit" && (cur.unitPrice === "" || cur.unitPrice === lastSuggested.current);
+  // Ô giá chưa bị sửa tay: còn trống hoặc còn đúng số vừa gợi ý (BR-6). Nhập theo tổng tiền thì
+  // giữ tổng tiền (số đã trả thật)
+  const untouched = (cur: LineState) =>
+    cur.priceMode === "unit" && (cur.unitPrice === "" || cur.unitPrice === lastSuggested.current);
 
   // Điền giá gợi ý (theo đơn vị niêm yết) vào ô đơn giá, quy sang đơn vị đang chọn (BR-5, BR-6)
   const fillSuggested = (cur: LineState) => {
     const raw = suggestedRaw.current;
     const next = raw === null ? "" : String(convertUnitPrice(raw, listUnit, cur.weightUnit));
     lastSuggested.current = next || null;
-    if (next !== cur.unitPrice) onChange({ unitPrice: next });
+    // Giá đã thay bằng giá gợi ý mới thì không còn là "giá tự lấy" đã lưu (BR-16)
+    if (next !== cur.unitPrice) onChange({ unitPrice: next, autoPrice: null });
   };
 
-  // Gợi ý đơn giá theo sản phẩm của dòng + ngày giờ mua chung, chỉ khi thêm mới (BR-6, BR-18)
+  // Gợi ý đơn giá theo sản phẩm của dòng + ngày giờ mua chung (BR-6, BR-18); trang sửa thì chỉ
+  // sau khi người dùng đổi sản phẩm/ngày/giờ (BR-7)
   useEffect(() => {
-    if (editing || !line.productId || !purchaseDate) {
+    const key = `${line.productId}|${purchaseDate}|${purchaseTime}`;
+    if (openedWith.current === key || !line.productId || !purchaseDate) {
       setLoading(false);
       return;
     }
+    // Đã đổi khỏi lúc mở: quay lại đúng giá trị cũ cũng gợi ý, vì giá đã bị thay
+    openedWith.current = null;
     let cancelled = false;
     setLoading(true);
     const q = new URLSearchParams({ productId: String(line.productId), date: purchaseDate });
@@ -118,12 +131,22 @@ export function PurchaseLine({ line, onChange, products, purchaseDate, purchaseT
     };
     // Gợi ý lại khi đổi sản phẩm hoặc thời điểm mua, không khi người dùng gõ giá
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [line.productId, purchaseDate, purchaseTime, editing]);
+  }, [line.productId, purchaseDate, purchaseTime]);
 
-  // Đổi đơn vị: quy đổi giá gợi ý đã có ngay tại chỗ; giá đã sửa tay thì giữ nguyên (BR-5)
+  // Đổi đơn vị: quy đổi đơn giá đang có ngay tại chỗ, không gọi lại server; giá đã sửa tay
+  // trong lần nhập này thì giữ nguyên (BR-5)
   useEffect(() => {
-    if (editing || loading || !untouched(lineNow.current)) return;
-    fillSuggested(lineNow.current);
+    const from = prevUnit.current;
+    prevUnit.current = line.weightUnit;
+    // Đang chờ gợi ý: kết quả về sẽ tự quy theo đơn vị mới
+    if (from === line.weightUnit || loading) return;
+    const cur = lineNow.current;
+    if (!untouched(cur) || cur.unitPrice === "") return;
+    // Có giá gợi ý gốc thì quy từ đó (không lệch do làm tròn); trang sửa chưa gợi ý thì quy từ đơn vị trước
+    if (suggestedRaw.current !== null) return fillSuggested(cur);
+    const next = String(convertUnitPrice(Number(cur.unitPrice), from, cur.weightUnit));
+    lastSuggested.current = next;
+    onChange({ unitPrice: next });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line.weightUnit]);
 
@@ -179,7 +202,7 @@ export function PurchaseLine({ line, onChange, products, purchaseDate, purchaseT
         label={`Đơn giá (VNĐ/${UNIT_LABEL[unit]})`}
         error={line.priceMode === "unit" ? errors.price : undefined}
         hint={
-          editing ? undefined : loading ? (
+          loading ? (
             <span className="inline-flex items-center gap-1.5" role="status">
               <span aria-hidden className="size-3 animate-spin rounded-full border-2 border-gold border-t-transparent" />
               Đang lấy giá…

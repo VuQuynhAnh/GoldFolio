@@ -120,11 +120,15 @@ export async function validatePurchase(db: Db, body: unknown, now: Date, current
 }
 
 /**
- * Giá để trống thì lấy giá bán ra tại thời điểm mua làm đơn giá và ghi nhãn nguồn
- * (HOLD-UC01/BR-16). Không tìm được giá thì không lưu, báo người dùng nhập tay.
+ * Nguồn giá của lần mua (HOLD-UC01/BR-16), quyết định lúc lưu (thêm hoặc sửa):
+ * - Giá để trống: lấy giá bán ra tại thời điểm mua làm đơn giá, ghi nhãn nguồn. Không tìm được
+ *   giá thì không lưu, báo người dùng nhập tay.
+ * - Giá có nhập: so với giá hệ thống tại thời điểm mua đã chọn. Trùng thì vẫn là giá hệ thống
+ *   (người dùng chỉ nhận giá gợi ý), khác thì là giá người dùng nhập. Không tra được giá (chưa có
+ *   nguồn, nguồn lỗi) thì coi là người dùng nhập, không chặn việc lưu.
  */
 export async function resolvePrice(db: Db, prices: PriceService, input: PurchaseInput): Promise<PurchaseInput> {
-  if (input.priceSource === "manual") return input;
+  if (input.priceSource === "manual") return markIfSystemPrice(db, prices, input);
   const found = await sellPriceAt(db, prices, input.productId, input.purchaseDate, input.purchaseTime);
   if (!found) throw new HttpError(400, AUTO_PRICE_NOT_FOUND, { price: AUTO_PRICE_NOT_FOUND });
   // Giá nguồn theo đơn vị niêm yết: tổng tiền tính theo đơn vị đó, đơn giá lưu quy sang đơn vị đã nhập (BR-5)
@@ -133,4 +137,21 @@ export async function resolvePrice(db: Db, prices: PriceService, input: Purchase
   if (totalCost > MAX_MONEY) throw new HttpError(400, "Tổng tiền tối đa 1.000 tỷ đồng", { price: "Tổng tiền tối đa 1.000 tỷ đồng" });
   if (totalCost <= 0) throw new HttpError(400, "Giá mua quá nhỏ so với khối lượng", { price: "Giá mua quá nhỏ so với khối lượng" });
   return { ...input, priceMode: "unit", unitCost, totalCost, priceNote: found.label };
+}
+
+/** Giá nhập trùng giá hệ thống tại thời điểm mua thì gắn nguồn "hệ thống" kèm nhãn (BR-16). */
+async function markIfSystemPrice(db: Db, prices: PriceService, input: PurchaseInput): Promise<PurchaseInput> {
+  let found: Awaited<ReturnType<typeof sellPriceAt>>;
+  try {
+    found = await sellPriceAt(db, prices, input.productId, input.purchaseDate, input.purchaseTime);
+  } catch {
+    return input;
+  }
+  if (!found) return input;
+  // So theo đúng cách người dùng nhập, sau khi quy giá nguồn (theo đơn vị niêm yết) về cùng đơn vị (BR-5)
+  const same =
+    input.priceMode === "unit"
+      ? input.unitCost === convertUnitPrice(found.unitPrice, input.priceUnit, input.inputUnit)
+      : input.totalCost === totalFromUnit(found.unitPrice, input.weightMg, input.priceUnit);
+  return same ? { ...input, priceSource: "auto", priceNote: found.label } : input;
 }

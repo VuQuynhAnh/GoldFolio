@@ -143,19 +143,20 @@ describe("lọc Vàng | Bạc | Tất cả (BR-17)", () => {
   };
 
   // SC: HOLD-UC01-SC40
-  it("mặc định Vàng; chọn Bạc giữ nguyên khi chuyển tab; Tất cả thấy cả hai", async () => {
+  it("mặc định Tất cả; chọn Bạc giữ nguyên khi chuyển tab", async () => {
     mockApi(baseHandlers(portfolio));
     const user = userEvent.setup();
     renderAt("/");
-    expect(await screen.findByText("Giá trị vàng")).toBeTruthy();
-    expect(screen.getByText("31.500.000")).toBeTruthy();
+    expect(await screen.findByText("Giá trị hiện tại")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tất cả" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("41.000.000")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Bạc" }));
     expect(screen.getByText("Giá trị bạc")).toBeTruthy();
     expect(screen.getByText("9.500.000")).toBeTruthy();
 
-    await user.click(screen.getByRole("link", { name: "Lần mua" }));
-    expect(await screen.findByRole("heading", { name: "Lần mua" })).toBeTruthy();
+    await user.click(screen.getByRole("link", { name: "Chi tiết" }));
+    expect(await screen.findByRole("heading", { name: "Chi tiết" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Bạc" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText("Bạc thỏi Phú Quý 999 10 lượng, 5 lượng")).toBeTruthy();
     expect(screen.queryByText("Nhẫn tròn Phú Quý 999.9")).toBeNull();
@@ -165,11 +166,36 @@ describe("lọc Vàng | Bạc | Tất cả (BR-17)", () => {
     expect(screen.getByText("Bạc thỏi Phú Quý 999 10 lượng, 5 lượng")).toBeTruthy();
   });
 
+  // SC: HOLD-UC01-SC52
+  it("tab Biểu đồ chỉ lọc Vàng | Bạc; đang lọc Tất cả thì hiện Vàng", async () => {
+    const products = [
+      { productId: 11, productName: "Nhẫn tròn Phú Quý 999.9", brandName: "Phú Quý", metal: "gold" as const, totalCost: 30_000_000 },
+      { productId: 13, productName: "Bạc thỏi Phú Quý 999 10 lượng, 5 lượng", brandName: "Phú Quý", metal: "silver" as const, totalCost: 10_000_000 },
+    ];
+    const chart = (productId: number) => ({ products, productId, priceUnit: "chi", points: [{ date: "2026-11-01", unitPrice: 13_000_000, qty: 1, diff: null }], today: null, avgCost: 13_000_000 });
+    mockApi({ ...baseHandlers(portfolio), "GET /portfolio/history": () => chart(11), "GET /portfolio/history?productId=13": () => chart(13) });
+    const user = userEvent.setup();
+    renderAt("/bieu-do");
+    expect(await screen.findByRole("heading", { name: "Biểu đồ giá" })).toBeTruthy();
+    const filter = screen.getByRole("group", { name: "Lọc kim loại" });
+    expect(within(filter).getAllByRole("button").map((b) => b.textContent)).toEqual(["Vàng", "Bạc"]);
+    expect(within(filter).getByRole("button", { name: "Vàng" }).getAttribute("aria-pressed")).toBe("true");
+
+    await user.click(within(filter).getByRole("button", { name: "Bạc" }));
+    await waitFor(() => expect((screen.getByLabelText("Sản phẩm") as HTMLSelectElement).value).toBe("13"));
+  });
+
+  it("đường dẫn cũ /lich-su, /lan-mua chuyển sang tab mới", async () => {
+    mockApi(baseHandlers(portfolio));
+    renderAt("/lan-mua");
+    expect(await screen.findByRole("heading", { name: "Chi tiết" })).toBeTruthy();
+  });
+
   it("kim loại chưa có lần mua thì báo chưa có tài sản", async () => {
     mockApi(baseHandlers({ ...portfolio, groups: [portfolio.groups[0]!], items: [item] }));
     const user = userEvent.setup();
     renderAt("/");
-    await screen.findByText("Giá trị vàng");
+    await screen.findByText("Giá trị hiện tại");
     await user.click(screen.getByRole("button", { name: "Bạc" }));
     expect(screen.getByText("Chưa có tài sản bạc")).toBeTruthy();
   });
@@ -260,8 +286,93 @@ describe("bỏ ghi chú", () => {
 
   it("danh sách lần mua không hiện ghi chú", async () => {
     mockApi(baseHandlers({ summary: group("gold"), groups: [group("gold")], items: [{ ...item, note: "Mua ở Phú Quý" }] }));
-    renderAt("/lan-mua");
+    renderAt("/chi-tiet");
     await screen.findByText("Nhẫn tròn Phú Quý 999.9");
     expect(screen.queryByText("Mua ở Phú Quý")).toBeNull();
+  });
+});
+
+describe("trang sửa lấy lại giá (BR-7)", () => {
+  const stored = { id: 5, productId: 11, brandId: 1, weight: 2, weightUnit: "chi", weightMg: 7500, purchaseDate: "2026-11-01", purchaseTime: null, priceMode: "unit", unitCost: 13_850_000, totalCost: 27_700_000, note: "", priceSource: "manual", priceNote: "" };
+  const suggestCount = (calls: { path: string }[]) => calls.filter((c) => c.path.startsWith("/prices/suggest")).length;
+  const unitInput = () => screen.getByLabelText(/^Đơn giá/) as HTMLInputElement;
+  const totalInput = () => screen.getByLabelText(/^Tổng tiền/) as HTMLInputElement;
+
+  // SC: HOLD-UC01-SC50
+  it("mở trang sửa giữ giá đã lưu; đổi sản phẩm thì lấy giá mới; đổi đơn vị thì quy đổi", async () => {
+    const calls = mockApi({
+      ...baseHandlers(),
+      "GET /purchases/5": () => ({ purchase: stored }),
+      "GET /prices/suggest": () => ({ unitPrice: 14_000_000, label: "Giá Phú Quý lúc 14:00 01/11/2026" }),
+    });
+    const user = userEvent.setup();
+    renderAt("/sua/5");
+    await waitFor(() => expect(unitInput().value).toBe("13.850.000"));
+    expect(suggestCount(calls)).toBe(0);
+
+    await user.selectOptions(screen.getByRole("combobox", { name: /^Sản phẩm/ }), "12");
+    await waitFor(() => expect(unitInput().value).toBe("14.000.000"));
+    expect(screen.getByText("Giá Phú Quý lúc 14:00 01/11/2026")).toBeTruthy();
+
+    await user.selectOptions(screen.getByLabelText(/^Đơn vị/), "luong");
+    expect((screen.getByLabelText(/^Đơn giá \(VNĐ\/lượng\)/) as HTMLInputElement).value).toBe("140.000.000");
+  });
+
+  it("trang sửa đổi đơn vị: quy đổi đơn giá đã lưu, không gọi lấy giá", async () => {
+    const calls = mockApi({ ...baseHandlers(), "GET /purchases/5": () => ({ purchase: stored }) });
+    const user = userEvent.setup();
+    renderAt("/sua/5");
+    await waitFor(() => expect(unitInput().value).toBe("13.850.000"));
+    await user.selectOptions(screen.getByLabelText(/^Đơn vị/), "luong");
+    expect(unitInput().value).toBe("138.500.000");
+    expect(suggestCount(calls)).toBe(0);
+  });
+
+  // SC: HOLD-UC01-SC51
+  it("lần mua nhập theo tổng tiền: đổi sản phẩm vẫn giữ tổng tiền", async () => {
+    mockApi({
+      ...baseHandlers(),
+      "GET /purchases/5": () => ({ purchase: { ...stored, priceMode: "total" } }),
+      "GET /prices/suggest": () => ({ unitPrice: 14_000_000, label: "Giá Phú Quý lúc 14:00 01/11/2026" }),
+    });
+    const user = userEvent.setup();
+    renderAt("/sua/5");
+    await waitFor(() => expect(totalInput().value).toBe("27.700.000"));
+    await user.selectOptions(screen.getByRole("combobox", { name: /^Sản phẩm/ }), "12");
+    expect(await screen.findByText("Giá Phú Quý lúc 14:00 01/11/2026")).toBeTruthy();
+    expect(totalInput().value).toBe("27.700.000");
+  });
+
+  it("lần mua có giá tự lấy: ô giá điền sẵn; đổi sản phẩm thì thay bằng giá mới và bỏ nhãn tự lấy", async () => {
+    mockApi({
+      ...baseHandlers(),
+      "GET /purchases/5": () => ({ purchase: { ...stored, priceSource: "auto", priceNote: "Giá Phú Quý ngày 01/11/2026" } }),
+      "GET /prices/suggest": () => ({ unitPrice: 14_000_000, label: "Giá Phú Quý lúc 14:00 01/11/2026" }),
+    });
+    const user = userEvent.setup();
+    renderAt("/sua/5");
+    await waitFor(() => expect(unitInput().value).toBe("13.850.000"));
+    expect(screen.getByText("Giá tự lấy · Giá Phú Quý ngày 01/11/2026")).toBeTruthy();
+    await user.selectOptions(screen.getByRole("combobox", { name: /^Sản phẩm/ }), "12");
+    await waitFor(() => expect(unitInput().value).toBe("14.000.000"));
+    expect(screen.queryByText("Giá tự lấy · Giá Phú Quý ngày 01/11/2026")).toBeNull();
+  });
+});
+
+describe("tab Chi tiết", () => {
+  // SC: HOLD-UC01-SC53
+  it("đánh dấu đơn giá người dùng nhập, phân biệt với đơn giá hệ thống tự lấy", async () => {
+    const auto = { ...item, id: 6, productName: "Vàng miếng SJC", productId: 12, unitCost: 140_000_000, inputUnit: "luong" as const, priceSource: "auto" as const, priceNote: "Giá Phú Quý ngày 01/11/2026" };
+    mockApi(baseHandlers({ summary: group("gold"), groups: [group("gold")], items: [item, auto] }));
+    renderAt("/chi-tiet");
+    const manualRow = (await screen.findByText("Nhẫn tròn Phú Quý 999.9")).closest("li")!;
+    expect(manualRow.textContent).toContain("Đơn giá 13.850.000/chỉ");
+    expect(within(manualRow).getByText("Bạn nhập")).toBeTruthy();
+    expect(manualRow.textContent).not.toContain("Tự lấy");
+
+    const autoRow = screen.getByText("Vàng miếng SJC").closest("li")!;
+    expect(autoRow.textContent).toContain("Đơn giá 140.000.000/lượng");
+    expect(autoRow.textContent).toContain("Tự lấy · Giá Phú Quý ngày 01/11/2026");
+    expect(within(autoRow).queryByText("Bạn nhập")).toBeNull();
   });
 });

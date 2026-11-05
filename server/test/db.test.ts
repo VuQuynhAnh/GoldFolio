@@ -15,14 +15,18 @@ const OLD_SCHEMA = `
 
 describe("nâng cấp DB đang có dữ liệu", () => {
   // Hồi quy: schema.sql chỉ CREATE TABLE IF NOT EXISTS, DB cũ không tự có cột mới
-  it("bảng lần mua cũ được thêm cột nguồn giá, dữ liệu cũ giữ nguyên và coi là nhập tay", async () => {
+  // SC: HOLD-UC01-SC54
+  it("bảng lần mua cũ được thêm cột nguồn giá; dữ liệu cũ giữ số tiền, đánh dấu giá hệ thống một lần", async () => {
     const pg = new PGlite({ parsers: { 20: (v: string) => Number(v) } });
     await pg.exec(OLD_SCHEMA + "INSERT INTO purchases VALUES (1, 1, 7500, 'chi', 13850000, 27700000);");
     await migrate(pgliteDb(pg));
-    await migrate(pgliteDb(pg)); // chạy lại nhiều lần không lỗi
     expect((await pg.query("SELECT id, total_cost, price_source, price_note FROM purchases")).rows).toEqual([
-      { id: 1, total_cost: 27_700_000, price_source: "manual", price_note: "" },
+      { id: 1, total_cost: 27_700_000, price_source: "auto", price_note: "Dữ liệu cũ, chưa xác nhận" },
     ]);
+    // Người dùng sửa lại thành nhập tay: lần khởi động sau không đánh dấu lại
+    await pg.exec("UPDATE purchases SET price_source = 'manual', price_note = ''");
+    await migrate(pgliteDb(pg));
+    expect((await pg.query("SELECT price_source FROM purchases")).rows).toEqual([{ price_source: "manual" }]);
   });
 
   // SC: HOLD-UC01-SC45

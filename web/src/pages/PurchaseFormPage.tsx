@@ -54,7 +54,7 @@ export function PurchaseFormPage() {
   const [attempt, setAttempt] = useState(0);
 
   // Mở từ link ngoài (không có trang trước trong app) thì "quay lại" về tab Lần mua
-  const goBack = () => (location.key === "default" ? navigate("/lan-mua", { replace: true }) : navigate(-1));
+  const goBack = () => (location.key === "default" ? navigate("/chi-tiet", { replace: true }) : navigate(-1));
 
   // Thêm mới: thương hiệu mặc định Phú Quý, một dòng với sản phẩm mặc định (BR-1)
   useEffect(() => {
@@ -64,7 +64,7 @@ export function PurchaseFormPage() {
     setLines([newLine(defaultProductOf(b))]);
   }, [brands, brandId, editId]);
 
-  // Sửa: nạp lần mua, không gợi ý lại giá (BR-7)
+  // Sửa: nạp lần mua, giữ giá đã lưu; chỉ gợi ý lại khi người dùng đổi sản phẩm/ngày/giờ (BR-7)
   useEffect(() => {
     if (!editId) return;
     setLoad("loading");
@@ -81,9 +81,10 @@ export function PurchaseFormPage() {
             weight: String(p.weight).replace(".", ","),
             weightUnit: p.weightUnit,
             priceMode: p.priceMode,
-            // Giá tự lấy: để trống ô giá, lưu mà không nhập thì server lấy lại (BR-16)
-            unitPrice: auto ? "" : String(p.unitCost),
-            totalPrice: auto ? "" : String(p.totalCost),
+            // Giá tự lấy cũng điền sẵn số đã lưu: bấm Lưu là người dùng xác nhận, thành giá
+            // người dùng nhập; xoá trống ô giá thì server lấy lại (BR-16)
+            unitPrice: String(p.unitCost),
+            totalPrice: String(p.totalCost),
             autoPrice: auto ? { note: p.priceNote, unitCost: p.unitCost } : null,
           },
         ]);
@@ -122,7 +123,7 @@ export function PurchaseFormPage() {
 
   const done = async () => {
     await reload();
-    navigate("/lan-mua", { replace: true });
+    navigate("/chi-tiet", { replace: true });
   };
 
   const submit = async (e: FormEvent) => {
@@ -180,7 +181,7 @@ export function PurchaseFormPage() {
         {header}
         <div className="flex flex-col items-center px-4 pt-16 text-center">
           <p className="mb-6 text-muted">Không tìm thấy lần mua</p>
-          <Link to="/lan-mua" replace className="flex min-h-12 items-center rounded-xl bg-gold px-6 font-medium text-bg">
+          <Link to="/chi-tiet" replace className="flex min-h-12 items-center rounded-xl bg-gold px-6 font-medium text-bg">
             Về danh sách lần mua
           </Link>
         </div>
