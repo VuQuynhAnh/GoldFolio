@@ -153,6 +153,7 @@ export async function getTrend(
     if (err instanceof TrendModelError) {
       console.warn(`[AI ${model.name}] ${err.kind}: ${err.message}`);
       if (err.kind === "quota") throw new HttpError(503, "AI đã hết lượt miễn phí, thử lại sau");
+      if (err.kind === "busy") throw new HttpError(503, "AI đang quá tải, thử lại sau ít phút");
       throw new HttpError(502, "Chưa phân tích được, thử lại sau");
     }
     throw err;

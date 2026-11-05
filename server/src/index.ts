@@ -38,7 +38,10 @@ if (process.env.PRICE_FETCH_ENABLED !== "0") {
 
 // AI nhận định xu hướng (PRICE-UC02): chỉ bật khi có GEMINI_API_KEY; GEMINI_MODEL đổi được model
 // Cùng một model cho nhận định xu hướng và chat hỏi AI (PRICE-UC03)
-const trendModel = process.env.GEMINI_API_KEY ? new GeminiTrendModel(process.env.GEMINI_API_KEY, process.env.GEMINI_MODEL || undefined) : undefined;
+// GEMINI_FALLBACK_MODEL: model dự phòng khi model chính quá tải/hết lượt
+const trendModel = process.env.GEMINI_API_KEY
+  ? new GeminiTrendModel(process.env.GEMINI_API_KEY, process.env.GEMINI_MODEL || undefined, process.env.GEMINI_FALLBACK_MODEL || undefined)
+  : undefined;
 if (!trendModel) console.log("AI nhận định xu hướng đang tắt (chưa có GEMINI_API_KEY)");
 
 // Có bản build web (npm run build) thì server trả luôn giao diện, chạy một service trên Render

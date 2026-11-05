@@ -40,10 +40,10 @@ export interface TrendModel {
   analyze(input: TrendInput): Promise<TrendAnalysis>;
 }
 
-/** quota = hết hạn mức (gói miễn phí); failed = lỗi khác hoặc trả về sai định dạng */
+/** quota = hết hạn mức (gói miễn phí); busy = model quá tải, thử lại sau ít phút; failed = lỗi khác hoặc sai định dạng */
 export class TrendModelError extends Error {
   constructor(
-    public kind: "quota" | "failed",
+    public kind: "quota" | "busy" | "failed",
     message: string = kind,
   ) {
     super(message);

@@ -38,7 +38,8 @@ npm run dev                           # server :4000 + web :5173 (proxy /api)
 | `DB_SSL_CA` | (trống) | Tuỳ chọn. Đường dẫn file CA của Supabase để bật SSL có kiểm chứng chỉ; trống = không SSL |
 | `PRICE_INTERVAL_MIN` | 15 | Chu kỳ lấy giá hiện tại (phút) |
 | `GEMINI_API_KEY` | (trống) | Tuỳ chọn. API key Google AI Studio (gói miễn phí, tạo ở aistudio.google.com → Get API key) để bật **AI nhận định xu hướng**. Trống = tắt, app vẫn chạy |
-| `GEMINI_MODEL` | `gemini-3.6-flash` | Tuỳ chọn. Đổi model Gemini, vd `gemini-3.5-flash-lite` nếu hết hạn mức miễn phí |
+| `GEMINI_MODEL` | `gemini-3.6-flash` | Tuỳ chọn. Đổi model Gemini chính |
+| `GEMINI_FALLBACK_MODEL` | `gemini-3.5-flash-lite` | Tuỳ chọn. Model dự phòng, tự dùng khi model chính quá tải (503 "high demand") hoặc hết lượt (429) |
 | `PRICE_FETCH_ENABLED` | 1 | Đặt 0 để tắt lấy giá |
 
 ### Cơ sở dữ liệu (Supabase free)

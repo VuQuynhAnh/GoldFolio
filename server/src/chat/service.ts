@@ -108,6 +108,7 @@ export async function answer(deps: { db: Db; prices: PriceService; model?: ChatM
     if (err instanceof TrendModelError) {
       console.warn(`[AI ${model.name}] chat ${err.kind}: ${err.message}`);
       if (err.kind === "quota") throw new HttpError(503, "AI đã hết lượt miễn phí, thử lại sau");
+      if (err.kind === "busy") throw new HttpError(503, "AI đang quá tải, thử lại sau ít phút");
       throw new HttpError(502, "Chưa trả lời được, thử lại sau");
     }
     throw err;

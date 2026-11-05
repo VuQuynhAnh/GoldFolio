@@ -76,6 +76,8 @@ describe("chat hỏi AI (PRICE-UC03)", () => {
     const agent = await login();
     chat.fail = new TrendModelError("failed");
     expect((await agent.post("/api/chat").send(ask("a")).expect(502)).body.error).toBe("Chưa trả lời được, thử lại sau");
+    chat.fail = new TrendModelError("busy");
+    expect((await agent.post("/api/chat").send(ask("a")).expect(503)).body.error).toBe("AI đang quá tải, thử lại sau ít phút");
     chat.fail = new TrendModelError("quota");
     expect((await agent.post("/api/chat").send(ask("a")).expect(503)).body.error).toBe("AI đã hết lượt miễn phí, thử lại sau");
     chat.fail = null;
