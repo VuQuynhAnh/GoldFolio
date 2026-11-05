@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
 import { vnDate, vnToIso, type PriceUnit } from "@goldfolio/shared";
+
+/** Ngày "YYYY-MM-DD" cộng `n` ngày (theo lịch, không theo múi giờ) */
+function addDays(date: string, n: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d! + n)).toISOString().slice(0, 10);
+}
 import type { Db } from "../db";
 import { matchRows, type MatchedPrice, type MatchProduct } from "./match";
 import type { PriceSource, SourceTable } from "./types";
@@ -35,12 +41,18 @@ interface PointRow {
 /** Giá của các thương hiệu: lấy từ adapter, lưu ảnh chụp, tra giá hiện tại và giá tại thời điểm mua. */
 export class PriceService {
   private sources = new Map<string, PriceSource>();
+  /** Lần tải bù đang chạy theo thương hiệu: lịch lấy giá và lượt mở tab dùng chung, không tải trùng */
+  private backfills = new Map<string, Promise<number>>();
+  /** Ngày (VN) đã tải bù xong theo thương hiệu */
+  private backfilledOn = new Map<string, string>();
 
   constructor(
     private db: Db,
     sources: PriceSource[],
     /** Đồng hồ, tiêm vào để test "hôm nay" */
     private now: () => Date = () => new Date(),
+    /** Nghỉ giữa hai lần hỏi giá theo ngày khi tải bù (R-SRC-02); server đặt 1,5 giây, test để 0 */
+    private backfillPauseMs = 0,
   ) {
     for (const s of sources) this.sources.set(s.brandCode, s);
   }
@@ -166,32 +178,115 @@ export class PriceService {
 
     const cached = await daily();
     if (cached) return toResult(cached);
+    if (!(await this.ensureDaily(product.brand_id, product.brand_code, date))) return null;
+    const saved = await daily();
+    return saved ? toResult(saved) : null;
+  }
 
-    const source = this.sources.get(product.brand_code);
+  /**
+   * Bảo đảm đã hỏi nguồn giá theo ngày của `date` (PRICE-BR-007): mỗi ngày đã qua chỉ hỏi
+   * một lần, kể cả khi nguồn báo không có. Trả true nếu vừa lấy được và lưu bảng mới.
+   */
+  private async ensureDaily(brandId: number, brandCode: string, date: string): Promise<boolean> {
+    const source = this.sources.get(brandCode);
     // Chỉ hỏi giá theo ngày cho ngày đã qua (giờ VN). Hôm nay chưa kết thúc: nguồn có thể
     // chưa có trang của hôm nay, ghi "không có dữ liệu" lúc này sẽ chặn ngày đó vĩnh viễn;
     // giá trong ngày đã có ảnh chụp live lo.
-    if (!source || date >= vnDate(this.now())) return null;
-    const asked =
-      (await this.db.one("SELECT 1 FROM price_snapshots WHERE brand_id = $1 AND kind = 'daily' AND source_date = $2", [product.brand_id, date])) ??
-      (await this.db.one("SELECT 1 FROM daily_misses WHERE brand_id = $1 AND date = $2", [product.brand_id, date]));
-    if (asked) return null;
+    if (!source || date >= vnDate(this.now()) || (await this.dailyAsked(brandId, date))) return false;
 
     let table: SourceTable | null;
     try {
       table = await source.fetchDaily(date);
     } catch (err) {
       // Lỗi mạng: không ghi là "không có dữ liệu" để lần sau còn thử lại
-      console.warn(`[giá ${product.brand_code}] lỗi lấy giá ngày ${date}:`, err);
-      return null;
+      console.warn(`[giá ${brandCode}] lỗi lấy giá ngày ${date}:`, err);
+      return false;
     }
     if (!table) {
-      await this.db.query("INSERT INTO daily_misses (brand_id, date) VALUES ($1, $2) ON CONFLICT DO NOTHING", [product.brand_id, date]);
-      return null;
+      await this.db.query("INSERT INTO daily_misses (brand_id, date) VALUES ($1, $2) ON CONFLICT DO NOTHING", [brandId, date]);
+      return false;
     }
-    const { matched } = matchRows(await this.liveProducts(product.brand_id), table.rows);
-    await this.db.tx((t) => this.saveSnapshot(t, product.brand_id, "daily", "daily", table, matched, ""));
-    const saved = await daily();
-    return saved ? toResult(saved) : null;
+    const { matched } = matchRows(await this.liveProducts(brandId), table.rows);
+    await this.db.tx((t) => this.saveSnapshot(t, brandId, "daily", "daily", table, matched, ""));
+    return true;
+  }
+
+  /**
+   * Tải bù giá theo ngày của `days` ngày đã qua gần nhất cho nhận định xu hướng (PRICE-UC02,
+   * PRICE-BR-007): tuần tự, nghỉ `pauseMs` giữa hai lần hỏi để không dồn request vào nguồn;
+   * ngày đã hỏi rồi thì bỏ qua, nên chạy lại hằng ngày chỉ hỏi thêm ngày mới. Trả số ngày đã hỏi nguồn.
+   */
+  async backfillDaily(brandCode: string, days: number, pauseMs = 0): Promise<number> {
+    const source = this.sources.get(brandCode);
+    if (!source) return 0;
+    const brandId = await this.brandId(brandCode);
+    const today = vnDate(this.now());
+    let asked = 0;
+    for (let n = 1; n <= days; n++) {
+      const date = addDays(today, -n);
+      if (await this.dailyAsked(brandId, date)) continue;
+      await this.ensureDaily(brandId, brandCode, date);
+      asked++;
+      if (pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
+    }
+    return asked;
+  }
+
+  /**
+   * Tải bù 30 ngày (PRICE-UC02/BR-1) theo cách dùng chung: đang có lần tải của thương hiệu này
+   * thì trả lại đúng lần đó. Xong thì ghi nhận ngày đã tải bù.
+   */
+  startBackfill(brandCode: string, days: number): Promise<number> {
+    const running = this.backfills.get(brandCode);
+    if (running) return running;
+    const job = this.backfillDaily(brandCode, days, this.backfillPauseMs)
+      .then((asked) => {
+        this.backfilledOn.set(brandCode, vnDate(this.now()));
+        return asked;
+      })
+      .finally(() => this.backfills.delete(brandCode));
+    this.backfills.set(brandCode, job);
+    return job;
+  }
+
+  /** Lần tải bù đang chạy (nếu có) */
+  backfillRunning(brandCode: string): Promise<number> | undefined {
+    return this.backfills.get(brandCode);
+  }
+
+  /** Hôm nay đã tải bù xong cho thương hiệu này chưa */
+  backfilledToday(brandCode: string): boolean {
+    return this.backfilledOn.get(brandCode) === vnDate(this.now());
+  }
+
+  /** Đã hỏi nguồn giá theo ngày của `date` chưa: có bảng đã lưu, hoặc nguồn từng báo không có */
+  private async dailyAsked(brandId: number, date: string): Promise<boolean> {
+    return !!(
+      (await this.db.one("SELECT 1 FROM price_snapshots WHERE brand_id = $1 AND kind = 'daily' AND source_date = $2", [brandId, date])) ??
+      (await this.db.one("SELECT 1 FROM daily_misses WHERE brand_id = $1 AND date = $2", [brandId, date]))
+    );
+  }
+
+  /**
+   * Giá theo từng ngày của một sản phẩm trong [from, to] (PRICE-UC02): ưu tiên giá theo ngày
+   * của nguồn (số chốt của ngày); ngày chưa có thì lấy ảnh chụp live cuối cùng của ngày đó.
+   */
+  async dailySeries(productId: number, from: string, to: string): Promise<{ date: string; buy: number; sell: number | null }[]> {
+    const daily = await this.db.query<PointRow & { date: string }>(
+      `SELECT s.source_date AS date, pp.buy_price, pp.sell_price FROM price_points pp
+       JOIN price_snapshots s ON s.id = pp.snapshot_id
+       WHERE pp.product_id = $1 AND s.kind = 'daily' AND s.source_date >= $2 AND s.source_date <= $3`,
+      [productId, from, to],
+    );
+    const live = await this.db.query<PointRow & { date: string }>(
+      `SELECT DISTINCT ON (s.source_date) s.source_date AS date, pp.buy_price, pp.sell_price FROM price_points pp
+       JOIN price_snapshots s ON s.id = pp.snapshot_id
+       WHERE pp.product_id = $1 AND s.kind = 'live' AND s.source_date >= $2 AND s.source_date <= $3
+       ORDER BY s.source_date, s.source_time DESC, s.id DESC`,
+      [productId, from, to],
+    );
+    const byDate = new Map<string, { date: string; buy: number; sell: number | null }>();
+    for (const r of [...live, ...daily]) byDate.set(r.date, { date: r.date, buy: r.buy_price, sell: r.sell_price });
+    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
   }
 }

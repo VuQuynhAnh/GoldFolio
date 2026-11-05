@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@goldfolio/shared": "*",
+    "@google/genai": "^2.32.0",
     "cheerio": "^1.0.0",
     "cookie-parser": "^1.4.7",
     "express": "^4.21.2",

@@ -6,6 +6,7 @@ import { seedCatalog } from "./catalog";
 import { PriceService } from "./prices/service";
 import { PhuQuySource } from "./prices/phuquy/adapter";
 import { startPriceScheduler } from "./prices/scheduler";
+import { GeminiTrendModel } from "./ai/gemini";
 
 const port = Number(process.env.PORT ?? 4000);
 // DATABASE_URL (vd chuỗi kết nối Supabase); không có thì pg tự đọc PGHOST/PGUSER/…
@@ -25,7 +26,8 @@ try {
 await seedCatalog(db);
 
 const sources = [new PhuQuySource()];
-const prices = new PriceService(db, sources);
+// Tải bù giá theo ngày nghỉ 1,5 giây giữa hai lần hỏi để không dồn request vào nguồn (R-SRC-02)
+const prices = new PriceService(db, sources, undefined, 1500);
 if (process.env.PRICE_FETCH_ENABLED !== "0") {
   startPriceScheduler(
     prices,
@@ -34,8 +36,12 @@ if (process.env.PRICE_FETCH_ENABLED !== "0") {
   );
 }
 
+// AI nhận định xu hướng (PRICE-UC02): chỉ bật khi có GEMINI_API_KEY; GEMINI_MODEL đổi được model
+const trendModel = process.env.GEMINI_API_KEY ? new GeminiTrendModel(process.env.GEMINI_API_KEY, process.env.GEMINI_MODEL || undefined) : undefined;
+if (!trendModel) console.log("AI nhận định xu hướng đang tắt (chưa có GEMINI_API_KEY)");
+
 // Có bản build web (npm run build) thì server trả luôn giao diện, chạy một service trên Render
 const webDist = fileURLToPath(new URL("../../web/dist", import.meta.url));
-createApp({ db, prices, webDist: existsSync(webDist) ? webDist : undefined }).listen(port, () => {
+createApp({ db, prices, trendModel, webDist: existsSync(webDist) ? webDist : undefined }).listen(port, () => {
   console.log(`GoldFolio server chạy ở http://localhost:${port}`);
 });

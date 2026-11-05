@@ -29,10 +29,13 @@ const autoPurchase = {
 
 describe("giá tự lấy (BR-16)", () => {
   // SC: HOLD-UC01-SC34
-  it("thẻ lần mua hiện nhãn giá tự lấy", async () => {
+  it("thẻ lần mua giá hệ thống lấy: chỉ ghi đơn giá, không nhãn", async () => {
     mockApi(baseHandlers(portfolio));
     renderAt("/chi-tiet");
-    expect(await screen.findByText("Tự lấy · Giá Phú Quý ngày 15/01/2025")).toBeTruthy();
+    const row = (await screen.findByText("Nhẫn tròn Phú Quý 999.9")).closest("li")!;
+    expect(row.textContent).toContain("Đơn giá 13.850.000/chỉ");
+    expect(row.textContent).not.toContain("Hệ thống lấy");
+    expect(row.textContent).not.toContain("Người dùng nhập");
   });
 
   it("form thêm ghi rõ có thể để trống giá", async () => {
@@ -50,7 +53,7 @@ describe("giá tự lấy (BR-16)", () => {
     });
     const user = userEvent.setup();
     renderAt("/sua/5");
-    expect(await screen.findByText("Giá tự lấy · Giá Phú Quý ngày 15/01/2025")).toBeTruthy();
+    expect(await screen.findByText("Hệ thống lấy · Giá Phú Quý ngày 15/01/2025")).toBeTruthy();
     const unit = screen.getByLabelText(/^Đơn giá/) as HTMLInputElement;
     expect(unit.value).toBe("8.610.000");
     await user.click(screen.getByRole("button", { name: "Lưu" }));
@@ -68,7 +71,7 @@ describe("giá tự lấy (BR-16)", () => {
     const unit = (await screen.findByDisplayValue("8.610.000")) as HTMLInputElement;
     await user.clear(unit);
     await user.type(unit, "13700000");
-    expect(screen.queryByText("Giá tự lấy · Giá Phú Quý ngày 15/01/2025")).toBeNull();
+    expect(screen.queryByText("Hệ thống lấy · Giá Phú Quý ngày 15/01/2025")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Lưu" }));
     await waitFor(() => expect(calls.find((c) => c.method === "PUT")?.body).toMatchObject({ unitPrice: 13_700_000 }));
   });

@@ -119,3 +119,24 @@ export interface History {
   today: { date: string; buyPrice: number; priceTime: string } | null;
   avgCost: number | null;
 }
+
+/** AI nhận định xu hướng giá của một kim loại (PRICE-UC02) */
+export interface Trend {
+  metal: "gold" | "silver";
+  date: string;
+  productId: number;
+  productName: string;
+  priceUnit: PriceUnit;
+  /** Số liệu do server tính từ giá thật */
+  stats: { days: number; firstBuy: number; lastBuy: number; changePct: number; minBuy: number; maxBuy: number };
+  analysis: {
+    trend: "up" | "down" | "sideways";
+    confidence: "low" | "medium" | "high";
+    summary: string;
+    points: string[];
+    vsCost: string | null;
+  };
+  model: string;
+  createdAt: string;
+  refreshesLeft: number;
+}

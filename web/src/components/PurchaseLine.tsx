@@ -27,6 +27,8 @@ export interface LineState {
   totalPrice: string;
   /** Lần mua đang sửa có giá tự lấy: giá cũ hiện mờ, gõ giá thì bỏ (BR-16) */
   autoPrice: { note: string; unitCost: number } | null;
+  /** Lần mua đang sửa có giá người dùng nhập: hiện nhãn dưới ô đơn giá, gõ giá khác thì bỏ (BR-16) */
+  savedManual: boolean;
 }
 
 let nextKey = 1;
@@ -41,6 +43,7 @@ export function newLine(defaultProductId: number | ""): LineState {
     unitPrice: "",
     totalPrice: "",
     autoPrice: null,
+    savedManual: false,
   };
 }
 
@@ -95,7 +98,7 @@ export function PurchaseLine({ line, onChange, products, purchaseDate, purchaseT
     const next = raw === null ? "" : String(convertUnitPrice(raw, listUnit, cur.weightUnit));
     lastSuggested.current = next || null;
     // Giá đã thay bằng giá gợi ý mới thì không còn là "giá tự lấy" đã lưu (BR-16)
-    if (next !== cur.unitPrice) onChange({ unitPrice: next, autoPrice: null });
+    if (next !== cur.unitPrice) onChange({ unitPrice: next, autoPrice: null, savedManual: false });
   };
 
   // Gợi ý đơn giá theo sản phẩm của dòng + ngày giờ mua chung (BR-6, BR-18); trang sửa thì chỉ
@@ -207,6 +210,17 @@ export function PurchaseLine({ line, onChange, products, purchaseDate, purchaseT
               <span aria-hidden className="size-3 animate-spin rounded-full border-2 border-gold border-t-transparent" />
               Đang lấy giá…
             </span>
+          ) : line.savedManual || line.autoPrice ? (
+            <>
+              {/* Nguồn của giá đã lưu (trang sửa); lưu lại thì server so giá lần nữa (BR-16) */}
+              {line.savedManual ? (
+                <span className="text-gold">Người dùng nhập</span>
+              ) : (
+                <span className="text-gold">Hệ thống lấy · {line.autoPrice!.note}</span>
+              )}
+              {/* Đã đổi sản phẩm/ngày mà giữ giá (vd nhập theo tổng tiền): vẫn cho xem giá tham khảo */}
+              {suggestLabel && <span className="mt-1 block">{suggestLabel}</span>}
+            </>
           ) : (
             suggestLabel ?? undefined
           )
@@ -217,7 +231,7 @@ export function PurchaseLine({ line, onChange, products, purchaseDate, purchaseT
           value={shownUnit}
           dim={line.priceMode !== "unit"}
           placeholder={line.autoPrice ? formatVnd(line.autoPrice.unitCost) : undefined}
-          onChange={(unitPrice) => onChange({ priceMode: "unit", unitPrice, autoPrice: null })}
+          onChange={(unitPrice) => onChange({ priceMode: "unit", unitPrice, autoPrice: null, savedManual: false })}
         />
       </Field>
       <Field
@@ -228,10 +242,9 @@ export function PurchaseLine({ line, onChange, products, purchaseDate, purchaseT
         <MoneyInput
           value={shownTotal}
           dim={line.priceMode !== "total"}
-          onChange={(totalPrice) => onChange({ priceMode: "total", totalPrice, autoPrice: null })}
+          onChange={(totalPrice) => onChange({ priceMode: "total", totalPrice, autoPrice: null, savedManual: false })}
         />
       </Field>
-      {line.autoPrice && <p className="-mt-1 mb-3 text-sm text-gold">Giá tự lấy · {line.autoPrice.note}</p>}
     </>
   );
 

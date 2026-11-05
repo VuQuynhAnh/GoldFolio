@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 import { AuthProvider } from "../src/auth";
 import { AppRoutes } from "../src/App";
-import { api } from "../src/api";
+import { ApiError, api } from "../src/api";
 import type { Brand, Portfolio, PortfolioItem, Totals } from "../src/api";
 
 type Handler = (init?: { method?: string; body?: unknown }) => unknown | Promise<unknown>;
@@ -95,6 +95,9 @@ export function baseHandlers(portfolio: Portfolio = emptyPortfolio): Record<stri
     "GET /brands": () => ({ brands }),
     "GET /portfolio/history": () => ({ products: [], productId: null, priceUnit: null, points: [], today: null, avgCost: null }),
     "GET /prices/suggest": () => ({ unitPrice: null, label: "Chưa có giá tham khảo cho thời điểm này" }),
+    "GET /trends": () => {
+      throw new ApiError(503, "Chưa bật AI nhận định (thiếu GEMINI_API_KEY)");
+    },
   };
 }
 

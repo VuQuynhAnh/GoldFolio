@@ -48,15 +48,13 @@ export function PurchasesPage() {
                     )}
                   </div>
                 </div>
-                {/* Đơn giá kèm nguồn: số người dùng nhập (đánh dấu) khác với giá hệ thống tự lấy, vốn không phải số trên hoá đơn (BR-16) */}
-                <div className="num mt-1 flex min-w-0 items-center gap-2 text-xs text-muted">
-                  <span className="shrink-0">
+                {/* Chỉ đánh dấu giá người dùng nhập; giá hệ thống lấy không ghi nhãn cho gọn, nguồn xem ở trang sửa (BR-16) */}
+                <div className="num mt-1 flex items-center gap-2 text-xs text-muted">
+                  <span>
                     Đơn giá <span className="text-ink">{formatVnd(i.unitCost)}</span>/{UNIT_LABEL[i.inputUnit]}
                   </span>
-                  {i.priceSource === "auto" ? (
-                    <span className="truncate">Tự lấy · {i.priceNote}</span>
-                  ) : (
-                    <span className="shrink-0 rounded-full border border-gold/60 px-2 py-0.5 text-gold">Bạn nhập</span>
+                  {i.priceSource === "manual" && (
+                    <span className="shrink-0 rounded-full border border-gold/60 px-2 py-0.5 text-gold">Người dùng nhập</span>
                   )}
                 </div>
               </Link>

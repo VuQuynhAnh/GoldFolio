@@ -86,6 +86,7 @@ export function PurchaseFormPage() {
             unitPrice: String(p.unitCost),
             totalPrice: String(p.totalCost),
             autoPrice: auto ? { note: p.priceNote, unitCost: p.unitCost } : null,
+            savedManual: !auto,
           },
         ]);
         setLoad("ready");

@@ -37,6 +37,8 @@ npm run dev                           # server :4000 + web :5173 (proxy /api)
 | `DATABASE_URL` | (trống) | Chuỗi kết nối PostgreSQL. Trống thì `pg` đọc `PGHOST`/`PGUSER`/… |
 | `DB_SSL_CA` | (trống) | Tuỳ chọn. Đường dẫn file CA của Supabase để bật SSL có kiểm chứng chỉ; trống = không SSL |
 | `PRICE_INTERVAL_MIN` | 15 | Chu kỳ lấy giá hiện tại (phút) |
+| `GEMINI_API_KEY` | (trống) | Tuỳ chọn. API key Google AI Studio (gói miễn phí, tạo ở aistudio.google.com → Get API key) để bật **AI nhận định xu hướng**. Trống = tắt, app vẫn chạy |
+| `GEMINI_MODEL` | `gemini-3.6-flash` | Tuỳ chọn. Đổi model Gemini, vd `gemini-3.5-flash-lite` nếu hết hạn mức miễn phí |
 | `PRICE_FETCH_ENABLED` | 1 | Đặt 0 để tắt lấy giá |
 
 ### Cơ sở dữ liệu (Supabase free)
@@ -71,7 +73,7 @@ Server trả luôn giao diện web đã build (`web/dist`), nên chỉ cần m�
 | Build Command | `npm ci --include=dev && npm run build` |
 | Start Command | `npm run start` |
 | Region | gần region của Supabase (vd Supabase Paris → Render Frankfurt) |
-| Biến môi trường | `DATABASE_URL`, `NODE_ENV=production` (cookie chỉ gửi qua HTTPS); `DB_SSL_CA` bỏ trống. **Không** đặt `PORT`, Render tự cấp |
+| Biến môi trường | `DATABASE_URL`, `NODE_ENV=production` (cookie chỉ gửi qua HTTPS); `DB_SSL_CA` bỏ trống; `GEMINI_API_KEY` nếu muốn bật AI nhận định. **Không** đặt `PORT`, Render tự cấp |
 
 - `--include=dev` là bắt buộc: có `NODE_ENV=production` thì `npm ci` bỏ qua devDependencies (vite, tailwind…) và build web hỏng.
 - Gói Free ngủ sau 15 phút không có truy cập: lần mở đầu chậm 30–50 giây, lúc ngủ không lấy giá 15 phút/lần (giá theo ngày vẫn tự bù khi cần).
@@ -89,6 +91,8 @@ Mọi API trừ `/api/auth/*` cần đăng nhập (cookie `sid`). Lỗi trả `{
 | `GET /api/purchases/:id`, `POST /api/purchases`, `PUT/DELETE /api/purchases/:id` | Lần mua của mình. Để trống `unitPrice` và `totalPrice` thì server tự lấy giá bán ra tại thời điểm mua (`priceSource: "auto"`, `priceNote` ghi nguồn); không tìm được giá thì 400 |
 | `GET /api/portfolio` | Tổng quan, nhóm kim loại/sản phẩm, danh sách lần mua kèm lãi/lỗ |
 | `GET /api/portfolio/history?productId` | Biểu đồ giá theo các mốc mua |
+| `GET /api/trends?metal=gold\|silver` | AI nhận định xu hướng 30 ngày của kim loại (mỗi ngày phân tích một lần, lưu lại) |
+| `POST /api/trends/refresh` | "Phân tích lại" `{ metal }`, tối đa 3 lần/ngày |
 
 ## Nguồn giá
 

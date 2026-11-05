@@ -352,10 +352,10 @@ describe("trang sửa lấy lại giá (BR-7)", () => {
     const user = userEvent.setup();
     renderAt("/sua/5");
     await waitFor(() => expect(unitInput().value).toBe("13.850.000"));
-    expect(screen.getByText("Giá tự lấy · Giá Phú Quý ngày 01/11/2026")).toBeTruthy();
+    expect(screen.getByText("Hệ thống lấy · Giá Phú Quý ngày 01/11/2026")).toBeTruthy();
     await user.selectOptions(screen.getByRole("combobox", { name: /^Sản phẩm/ }), "12");
     await waitFor(() => expect(unitInput().value).toBe("14.000.000"));
-    expect(screen.queryByText("Giá tự lấy · Giá Phú Quý ngày 01/11/2026")).toBeNull();
+    expect(screen.queryByText("Hệ thống lấy · Giá Phú Quý ngày 01/11/2026")).toBeNull();
   });
 });
 
@@ -367,12 +367,36 @@ describe("tab Chi tiết", () => {
     renderAt("/chi-tiet");
     const manualRow = (await screen.findByText("Nhẫn tròn Phú Quý 999.9")).closest("li")!;
     expect(manualRow.textContent).toContain("Đơn giá 13.850.000/chỉ");
-    expect(within(manualRow).getByText("Bạn nhập")).toBeTruthy();
-    expect(manualRow.textContent).not.toContain("Tự lấy");
+    expect(within(manualRow).getByText("Người dùng nhập")).toBeTruthy();
+    expect(manualRow.textContent).not.toContain("Hệ thống lấy");
 
     const autoRow = screen.getByText("Vàng miếng SJC").closest("li")!;
     expect(autoRow.textContent).toContain("Đơn giá 140.000.000/lượng");
-    expect(autoRow.textContent).toContain("Tự lấy · Giá Phú Quý ngày 01/11/2026");
-    expect(within(autoRow).queryByText("Bạn nhập")).toBeNull();
+    // Giá hệ thống lấy: không ghi nhãn ở danh sách (chỉ trang sửa ghi nguồn), cho gọn
+    expect(autoRow.textContent).not.toContain("Hệ thống lấy");
+    expect(within(autoRow).queryByText("Người dùng nhập")).toBeNull();
+  });
+});
+
+describe("trang sửa ghi nguồn giá đã lưu", () => {
+  const stored = { id: 5, productId: 13, brandId: 1, weight: 2, weightUnit: "luong", weightMg: 75_000, purchaseDate: "2025-09-05", purchaseTime: null, priceMode: "unit", unitCost: 1_436_000, totalCost: 2_872_000, note: "", priceSource: "manual", priceNote: "" };
+
+  // SC: HOLD-UC01-SC56
+  it("giá người dùng nhập: dưới ô đơn giá có nhãn Người dùng nhập; gõ giá khác thì bỏ nhãn", async () => {
+    mockApi({ ...baseHandlers(), "GET /purchases/5": () => ({ purchase: stored }) });
+    const user = userEvent.setup();
+    renderAt("/sua/5");
+    const unit = (await screen.findByDisplayValue("1.436.000")) as HTMLInputElement;
+    expect(screen.getByText("Người dùng nhập")).toBeTruthy();
+    await user.clear(unit);
+    await user.type(unit, "1500000");
+    expect(screen.queryByText("Người dùng nhập")).toBeNull();
+  });
+
+  it("giá hệ thống lấy: không có nhãn Người dùng nhập, ghi nguồn giá", async () => {
+    mockApi({ ...baseHandlers(), "GET /purchases/5": () => ({ purchase: { ...stored, priceSource: "auto", priceNote: "Giá Phú Quý ngày 05/09/2025" } }) });
+    renderAt("/sua/5");
+    expect(await screen.findByText("Hệ thống lấy · Giá Phú Quý ngày 05/09/2025")).toBeTruthy();
+    expect(screen.queryByText("Người dùng nhập")).toBeNull();
   });
 });
