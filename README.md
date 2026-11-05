@@ -93,6 +93,8 @@ Mọi API trừ `/api/auth/*` cần đăng nhập (cookie `sid`). Lỗi trả `{
 | `GET /api/portfolio/history?productId` | Biểu đồ giá theo các mốc mua |
 | `GET /api/trends?metal=gold\|silver` | AI nhận định xu hướng 30 ngày của kim loại (mỗi ngày phân tích một lần, lưu lại) |
 | `POST /api/trends/refresh` | "Phân tích lại" `{ metal }`, tối đa 3 lần/ngày |
+| `GET /api/chat` | Số câu hỏi AI còn lại hôm nay |
+| `POST /api/chat` | Hỏi AI `{ messages: [{ role, content }] }` → `{ reply, questionsLeft }`; tối đa 20 câu/ngày, server không lưu nội dung |
 
 ## Nguồn giá
 
