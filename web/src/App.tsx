@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth";
 import { PortfolioProvider } from "./portfolio-context";
+import { ChatProvider } from "./chat-context";
 import { AppShell } from "./components/AppShell";
 import { LoginPage } from "./pages/LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
@@ -14,7 +15,9 @@ function Protected() {
   if (!user) return <Navigate to="/dang-nhap" replace />;
   return (
     <PortfolioProvider>
-      <Outlet />
+      <ChatProvider>
+        <Outlet />
+      </ChatProvider>
     </PortfolioProvider>
   );
 }

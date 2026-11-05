@@ -1,16 +1,21 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { UNIT_LABEL, formatDateTimeVn, formatVnd } from "@goldfolio/shared";
 import type { Totals } from "../api";
 import { usePortfolio } from "../portfolio-context";
 import { LoadError, Pnl } from "../components/ui";
 import { METAL_NAME, MetalFilter } from "../components/MetalFilter";
+import { TrendPopover } from "../components/TrendPopover";
 
 /**
  * Tab Tổng quan: giá trị hiện tại, lãi/lỗ, nhóm kim loại → sản phẩm (HOLD-UC01/BR-9…11),
- * lọc theo Vàng | Bạc | Tất cả (BR-17).
+ * lọc theo Vàng | Bạc | Tất cả (BR-17). Chạm thẻ kim loại / sản phẩm thì sang tab Chi tiết đúng
+ * bộ lọc (BR-21); chạm giá trị, % lãi/lỗ thì bật nhận định AI (PRICE-UC02/BR-11).
  */
 export function OverviewPage() {
-  const { portfolio, error, reload, metal } = usePortfolio();
+  const { portfolio, error, reload, metal, setMetal } = usePortfolio();
+  // Sản phẩm đang mở bong bóng nhận định AI (một cái mỗi lúc)
+  const [popover, setPopover] = useState<number | null>(null);
   // Lỗi khi đã có số cũ thì chỉ hiện dải báo lỗi phía trên, giữ nguyên số đang xem
   const errorBar = error && <LoadError message={error} onRetry={() => void reload()} />;
 
@@ -58,23 +63,34 @@ export function OverviewPage() {
 
       {groups.map((g) => (
         <section key={g.metal} className="rounded-2xl border border-line bg-surface">
-          <div className="flex items-baseline justify-between px-4 pt-4">
+          <Link
+            to="/chi-tiet"
+            onClick={() => setMetal(g.metal)}
+            aria-label={`Xem chi tiết ${METAL_NAME[g.metal]}`}
+            className="flex min-h-11 items-baseline justify-between px-4 pt-4"
+          >
             <h2 className="font-semibold">
-              {g.label} <span className="num text-sm font-normal text-muted">· {g.weightText}</span>
+              {g.label} <span className="num text-sm font-normal text-muted">· {g.weightText} ›</span>
             </h2>
             {g.totalCost > 0 && <Pnl pnl={g.pnl} pct={g.pct} className="text-sm" />}
-          </div>
+          </Link>
           <ul className="divide-y divide-line px-4 pb-1">
             {g.products.map((p) => (
               <li key={p.productId} className="py-2">
                 <div className="flex min-h-12 items-center justify-between gap-3">
-                  <div className="min-w-0">
+                  <Link to="/chi-tiet" onClick={() => setMetal(g.metal)} className="min-w-0 flex-1">
                     <div className="truncate">{p.productName}</div>
                     <div className="num text-xs text-muted">
                       {p.brandName} · {p.weightText} · {p.count} lần mua
                     </div>
-                  </div>
-                  <div className="shrink-0 text-right">
+                  </Link>
+                  <button
+                    type="button"
+                    aria-label={`Nhận định AI: ${p.productName}`}
+                    aria-expanded={popover === p.productId}
+                    onClick={() => setPopover((cur) => (cur === p.productId ? null : p.productId))}
+                    className="min-h-11 shrink-0 rounded-lg text-right active:bg-surface-2"
+                  >
                     {p.excludedCount === p.count ? (
                       <span className="text-sm text-muted">Chưa có giá</span>
                     ) : (
@@ -83,7 +99,7 @@ export function OverviewPage() {
                         <Pnl pnl={p.pnl} pct={p.pct} className="text-xs" />
                       </>
                     )}
-                  </div>
+                  </button>
                 </div>
                 {/* Giá cửa hàng đang niêm yết; lãi/lỗ tính theo giá mua vào (BR-9, BR-10). Hàng riêng cho đủ chỗ trên màn nhỏ. */}
                 {p.price && (
@@ -97,6 +113,7 @@ export function OverviewPage() {
                     {" "}/{UNIT_LABEL[p.price.unit]}
                   </div>
                 )}
+                {popover === p.productId && <TrendPopover metal={g.metal} onClose={() => setPopover(null)} />}
               </li>
             ))}
           </ul>

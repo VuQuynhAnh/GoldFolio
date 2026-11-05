@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, screen, waitFor } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ApiError } from "../src/api";
 import { baseHandlers, deferred, group, item, mockApi, renderAt } from "./helpers";
@@ -36,35 +36,44 @@ const trend = (metal: "gold" | "silver", refreshesLeft = 3) => ({
   },
 });
 
-describe("AI nhận định xu hướng (PRICE-UC02)", () => {
+/** Mở khung chat từ Tổng quan; nhận định xu hướng nằm đầu khung chat */
+async function openChat(user: ReturnType<typeof userEvent.setup>) {
+  renderAt("/");
+  await user.click(await screen.findByRole("button", { name: "Hỏi AI" }));
+  return within(screen.getByRole("dialog", { name: "Hỏi AI" }));
+}
+
+describe("AI nhận định xu hướng trong khung chat (PRICE-UC02)", () => {
   // SC: PRICE-UC02-SC7
-  it("tab Biểu đồ hiện nhận định: xu hướng, số liệu 30 ngày do server tính, lời nhắc tham khảo", async () => {
+  it("đầu khung chat có nhận định: xu hướng, số liệu 30 ngày do server tính, lời nhắc tham khảo", async () => {
+    mockApi({ ...baseHandlers(portfolio), "GET /trends": () => trend("gold") });
+    const chat = await openChat(userEvent.setup());
+    expect(await chat.findByText("Xu hướng tăng")).toBeTruthy();
+    expect(chat.getByText("Giá tăng đều trong 30 ngày.")).toBeTruthy();
+    expect(chat.getByText(/30 ngày: mua vào 13\.400\.000 → 13\.690\.000\/chỉ/)).toBeTruthy();
+    expect(chat.getByText("+2,16%")).toBeTruthy();
+    expect(chat.getByText("Cao hơn giá vốn bình quân.")).toBeTruthy();
+    expect(chat.getAllByText(/Nhận định tham khảo, không phải lời khuyên đầu tư/).length).toBeGreaterThan(0);
+  });
+
+  it("tab Biểu đồ chỉ còn biểu đồ, không còn thẻ nhận định", async () => {
     mockApi({ ...baseHandlers(portfolio), "GET /portfolio/history": () => history, "GET /trends": () => trend("gold") });
     renderAt("/bieu-do");
-    expect(await screen.findByText("Xu hướng tăng")).toBeTruthy();
-    expect(screen.getByText("Giá tăng đều trong 30 ngày.")).toBeTruthy();
-    expect(screen.getByText(/30 ngày: mua vào 13\.400\.000 → 13\.690\.000\/chỉ/)).toBeTruthy();
-    expect(screen.getByText("+2,16%")).toBeTruthy();
-    expect(screen.getByText("Cao hơn giá vốn bình quân.")).toBeTruthy();
-    expect(screen.getByText(/Nhận định tham khảo, không phải lời khuyên đầu tư/)).toBeTruthy();
+    expect(await screen.findByLabelText("Sản phẩm")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Nhận định xu hướng" })).toBeNull();
   });
 
   // SC: PRICE-UC02-SC8
   it("Phân tích lại: báo đang phân tích, cập nhật số lượt còn lại", async () => {
     const late = deferred<ReturnType<typeof trend>>();
-    const calls = mockApi({
-      ...baseHandlers(portfolio),
-      "GET /portfolio/history": () => history,
-      "GET /trends": () => trend("gold"),
-      "POST /trends/refresh": () => late.promise,
-    });
+    const calls = mockApi({ ...baseHandlers(portfolio), "GET /trends": () => trend("gold"), "POST /trends/refresh": () => late.promise });
     const user = userEvent.setup();
-    renderAt("/bieu-do");
-    await user.click(await screen.findByRole("button", { name: "Phân tích lại (còn 3 lần)" }));
-    expect(screen.getByText("Đang phân tích…")).toBeTruthy();
-    expect(calls.find((c) => c.method === "POST")?.body).toEqual({ metal: "gold" });
+    const chat = await openChat(user);
+    await user.click(await chat.findByRole("button", { name: "Phân tích lại (còn 3 lần)" }));
+    expect(chat.getByText("Đang phân tích…")).toBeTruthy();
+    expect(calls.find((c) => c.path === "/trends/refresh")?.body).toEqual({ metal: "gold" });
     late.resolve(trend("gold", 2));
-    expect(await screen.findByRole("button", { name: "Phân tích lại (còn 2 lần)" })).toBeTruthy();
+    expect(await chat.findByRole("button", { name: "Phân tích lại (còn 2 lần)" })).toBeTruthy();
   });
 
   // SC: PRICE-UC02-SC9
@@ -73,38 +82,36 @@ describe("AI nhận định xu hướng (PRICE-UC02)", () => {
     let loading = true;
     mockApi({
       ...baseHandlers(portfolio),
-      "GET /portfolio/history": () => history,
       "GET /trends": () => {
         if (loading) throw new ApiError(409, "Đang tải giá 30 ngày gần nhất, đợi khoảng 1 phút", { trend: "loading" });
         return trend("gold");
       },
     });
-    renderAt("/bieu-do");
-    expect(await screen.findByText("Đang tải giá 30 ngày gần nhất, đợi khoảng 1 phút")).toBeTruthy();
-    expect(screen.queryByRole("alert")).toBeNull();
+    const chat = await openChat(userEvent.setup({ advanceTimers: vi.advanceTimersByTime }));
+    expect(await chat.findByText("Đang tải giá 30 ngày gần nhất, đợi khoảng 1 phút")).toBeTruthy();
+    expect(chat.queryByRole("alert")).toBeNull();
     loading = false;
     await vi.advanceTimersByTimeAsync(15_000);
-    expect(await screen.findByText("Xu hướng tăng")).toBeTruthy();
+    expect(await chat.findByText("Xu hướng tăng")).toBeTruthy();
     vi.useRealTimers();
   });
 
-  it("chọn Bạc thì nhận định bạc; lỗi thì báo kèm Thử lại, trang vẫn dùng được", async () => {
+  it("chuyển Vàng | Bạc ngay trong khung chat; lỗi thì báo kèm Thử lại, chat vẫn dùng được", async () => {
     let fail = true;
     const calls = mockApi({
       ...baseHandlers(portfolio),
-      "GET /portfolio/history": () => history,
       "GET /trends": () => {
-        if (fail) throw new ApiError(409, "Chưa đủ dữ liệu giá để nhận định (cần ít nhất 5 ngày)");
+        if (fail) throw new ApiError(409, "Nguồn giá chưa có đủ số liệu để nhận định (cần ít nhất 5 ngày)");
         return trend("silver");
       },
     });
     const user = userEvent.setup();
-    renderAt("/bieu-do");
-    expect(await screen.findByText("Chưa đủ dữ liệu giá để nhận định (cần ít nhất 5 ngày)")).toBeTruthy();
-    expect(screen.getByLabelText("Sản phẩm")).toBeTruthy();
+    const chat = await openChat(user);
+    expect(await chat.findByText("Nguồn giá chưa có đủ số liệu để nhận định (cần ít nhất 5 ngày)")).toBeTruthy();
+    expect(chat.getByRole("textbox", { name: "Câu hỏi" })).toBeTruthy();
     fail = false;
-    await user.click(screen.getByRole("button", { name: "Bạc" }));
+    await user.click(chat.getByRole("button", { name: "Bạc" }));
     await waitFor(() => expect(calls.some((c) => c.path === "/trends?metal=silver")).toBe(true));
-    expect(await screen.findByText("Xu hướng tăng")).toBeTruthy();
+    expect(await chat.findByText("Xu hướng tăng")).toBeTruthy();
   });
 });

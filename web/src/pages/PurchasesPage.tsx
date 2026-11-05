@@ -6,17 +6,35 @@ import { METAL_NAME, MetalFilter } from "../components/MetalFilter";
 
 /**
  * Tab Chi tiết: toàn bộ lần mua, mới nhất trước, không phân trang; chạm để sửa (HOLD-UC01/BR-10).
- * Chỉ hiện lần mua của kim loại đang lọc (BR-17).
+ * Chỉ hiện lần mua của kim loại đang lọc (BR-17); đầu trang có giá hiện tại của các sản phẩm
+ * trong bộ lọc để tham chiếu (BR-21).
  */
 export function PurchasesPage() {
   const { portfolio, error, reload, metal } = usePortfolio();
   const items = portfolio?.items.filter((i) => metal === "all" || i.metal === metal) ?? [];
+  const refPrices = (portfolio?.groups ?? [])
+    .filter((g) => metal === "all" || g.metal === metal)
+    .flatMap((g) => g.products)
+    .filter((p) => p.price);
 
   return (
     <div>
       <h1 className="mb-3 text-lg font-semibold">Chi tiết</h1>
       {error && <LoadError message={error} onRetry={() => void reload()} />}
       {portfolio && portfolio.items.length > 0 && <MetalFilter />}
+      {refPrices.length > 0 && (
+        <section aria-label="Giá hiện tại" className="mb-3 rounded-2xl border border-gold/30 bg-surface px-4 py-3">
+          <h2 className="mb-1 text-xs text-muted">Giá hiện tại</h2>
+          {refPrices.map((p) => (
+            <div key={p.productId} className="py-1">
+              <div className="truncate text-sm">{p.productName}</div>
+              <div className="num text-xs text-muted">
+                {`Mua vào ${formatVnd(p.price!.buy)}${p.price!.sell !== null ? ` · Bán ra ${formatVnd(p.price!.sell)}` : ""}/${UNIT_LABEL[p.price!.unit]}`}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
       {!portfolio ? (
         !error && <p className="text-muted">Đang tải…</p>
       ) : portfolio.items.length === 0 ? (

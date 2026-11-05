@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
 import { formatDateTimeVn, formatPct, formatVnd } from "@goldfolio/shared";
 import { cn } from "@/lib/utils";
-import { ApiError, api, type Trend } from "../api";
+import type { Trend } from "../api";
+import { useTrend } from "../hooks/useTrend";
 import { LoadError } from "./ui";
 
-const TREND_LABEL = {
+export const TREND_LABEL = {
   up: { text: "Xu hướng tăng", className: "text-gain" },
   down: { text: "Xu hướng giảm", className: "text-loss" },
   sideways: { text: "Đi ngang", className: "text-muted" },
@@ -12,86 +12,48 @@ const TREND_LABEL = {
 const CONFIDENCE = { low: "thấp", medium: "trung bình", high: "cao" } as const;
 const UNIT = { chi: "chỉ", luong: "lượng", kg: "kg" } as const;
 
-/** Server đang tải bù giá 30 ngày: tự thử lại sau ngần này (PRICE-UC02/BR-3) */
-const RETRY_WHILE_LOADING_MS = 15_000;
+/** Vòng xoay + chữ cho trạng thái chờ (đang tải giá, đang phân tích) */
+export function Waiting({ text }: { text: string }) {
+  return (
+    <p className="inline-flex items-center gap-2 text-sm text-muted" role="status">
+      <span aria-hidden className="size-3 shrink-0 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+      {text}
+    </p>
+  );
+}
 
-const message = (err: unknown) => (err instanceof Error ? err.message : "Chưa phân tích được, thử lại sau");
+const METALS = [
+  { value: "gold", label: "Vàng" },
+  { value: "silver", label: "Bạc" },
+] as const;
 
 /**
- * Thẻ AI nhận định xu hướng giá của kim loại đang xem ở tab Biểu đồ (PRICE-UC02). Số liệu 30 ngày
- * do server tính; phần chữ do AI viết, luôn kèm lời nhắc chỉ là tham khảo.
+ * Thẻ AI nhận định xu hướng giá, đặt ở đầu khung chat (PRICE-UC02/BR-10, user chuyển từ tab Biểu đồ
+ * vào chat 2026-11-05), có nút chuyển Vàng | Bạc. Số liệu 30 ngày do server tính; phần chữ do AI
+ * viết, luôn kèm lời nhắc chỉ là tham khảo.
  */
-export function TrendCard({ metal }: { metal: "gold" | "silver" }) {
-  const [trend, setTrend] = useState<Trend | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  // Thông báo "đang tải giá" của server: không phải lỗi, hiện như trạng thái chờ và tự thử lại
-  const [pending, setPending] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  // Kim loại đang xem lúc kết quả về: đã chuyển kim loại khác thì bỏ kết quả cũ (R-UI-02)
-  const metalNow = useRef(metal);
-  metalNow.current = metal;
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setTrend(null);
-    setError(null);
-    api<{ trend: Trend }>(`/trends?metal=${metal}`)
-      .then((r) => {
-        if (cancelled) return;
-        setTrend(r.trend);
-        setPending(null);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if (err instanceof ApiError && err.fields.trend === "loading") setPending(err.message);
-        else {
-          setPending(null);
-          setError(message(err));
-        }
-      })
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [metal, attempt]);
-
-  // Server đang tải giá: đợi rồi tự hỏi lại, người dùng không phải bấm gì
-  useEffect(() => {
-    if (!pending || loading) return;
-    const timer = setTimeout(() => setAttempt((a) => a + 1), RETRY_WHILE_LOADING_MS);
-    return () => clearTimeout(timer);
-  }, [pending, loading]);
-
-  const refresh = async () => {
-    const m = metal;
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await api<{ trend: Trend }>("/trends/refresh", { method: "POST", body: { metal: m } });
-      if (metalNow.current === m) setTrend(r.trend);
-    } catch (err) {
-      // Phân tích lại lỗi: giữ nhận định cũ, chỉ báo lỗi
-      if (metalNow.current === m) setError(message(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
+export function TrendCard({ metal, onMetalChange }: { metal: "gold" | "silver"; onMetalChange(m: "gold" | "silver"): void }) {
+  const { trend, loading, error, pending, busy, refresh, retry } = useTrend(metal);
   return (
-    <section aria-label="Nhận định xu hướng" className="mt-4 rounded-2xl border border-line bg-surface p-4">
-      <h2 className="mb-2 font-semibold">Nhận định xu hướng</h2>
-      {error && <LoadError message={error} onRetry={() => (trend ? void refresh() : setAttempt((a) => a + 1))} />}
-      {pending || loading || busy ? (
-        <p className="inline-flex items-center gap-2 text-sm text-muted" role="status">
-          <span aria-hidden className="size-3 shrink-0 animate-spin rounded-full border-2 border-gold border-t-transparent" />
-          {pending ?? "Đang phân tích…"}
-        </p>
-      ) : (
-        trend && <TrendBody trend={trend} />
-      )}
+    <section aria-label="Nhận định xu hướng" className="rounded-2xl border border-gold/40 bg-surface-2 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="font-semibold">Nhận định xu hướng</h3>
+        <div role="group" aria-label="Kim loại nhận định" className="grid grid-cols-2 gap-1 rounded-lg bg-surface p-0.5">
+          {METALS.map((m) => (
+            <button
+              key={m.value}
+              type="button"
+              aria-pressed={metal === m.value}
+              onClick={() => onMetalChange(m.value)}
+              className={cn("min-h-11 rounded-md px-3 text-xs font-medium", metal === m.value ? "bg-gold text-bg" : "text-muted")}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {error && <LoadError message={error} onRetry={() => (trend ? void refresh() : retry())} />}
+      {pending || loading || busy ? <Waiting text={pending ?? "Đang phân tích…"} /> : trend && <TrendBody trend={trend} />}
       {trend && (
         <button
           type="button"

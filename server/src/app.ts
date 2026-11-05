@@ -9,6 +9,8 @@ import { brandsRouter, portfolioRouter, pricesRouter } from "./routes";
 import type { PriceService } from "./prices/service";
 import type { TrendModel } from "./ai/trend";
 import { trendsRouter } from "./trends/routes";
+import type { ChatModel } from "./ai/chat";
+import { chatRouter } from "./chat/routes";
 
 export interface AppDeps {
   db: Db;
@@ -17,12 +19,14 @@ export interface AppDeps {
   now?: () => Date;
   /** AI nhận định xu hướng giá; không có (thiếu API key) thì API trả 503, phần khác vẫn chạy */
   trendModel?: TrendModel;
+  /** AI cho chat hỏi đáp; không có thì API chat trả 503 */
+  chatModel?: ChatModel;
   /** Thư mục bản build của web (web/dist). Có thì server trả luôn giao diện, để deploy một service duy nhất */
   webDist?: string;
 }
 
 /** Tạo app Express (không listen) để server và test dùng chung. */
-export function createApp({ db, prices, now = () => new Date(), webDist, trendModel }: AppDeps): Express {
+export function createApp({ db, prices, now = () => new Date(), webDist, trendModel, chatModel }: AppDeps): Express {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
@@ -34,6 +38,7 @@ export function createApp({ db, prices, now = () => new Date(), webDist, trendMo
   app.use("/api/purchases", auth, purchasesRouter(db, prices, now));
   app.use("/api/portfolio", auth, portfolioRouter(db, prices, now));
   app.use("/api/trends", auth, trendsRouter(db, prices, trendModel, now));
+  app.use("/api/chat", auth, chatRouter(db, prices, chatModel, now));
   // /api lạ trả lỗi JSON, không rơi xuống trang web phía dưới
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "Không tìm thấy" });

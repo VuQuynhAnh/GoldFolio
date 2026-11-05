@@ -4,12 +4,11 @@ import { usePortfolio } from "../portfolio-context";
 import { HistoryChart } from "../components/HistoryChart";
 import { LoadError } from "../components/ui";
 import { METAL_NAME, MetalFilter, chartMetal } from "../components/MetalFilter";
-import { TrendCard } from "../components/TrendCard";
 
 /**
  * Tab Biểu đồ: giá theo các mốc mua của một sản phẩm (HOLD-UC01/BR-13, BR-14);
- * chỉ lọc Vàng | Bạc, chọn được sản phẩm của kim loại đang lọc (BR-17); dưới biểu đồ là
- * AI nhận định xu hướng của kim loại đó (PRICE-UC02).
+ * chỉ lọc Vàng | Bạc, chọn được sản phẩm của kim loại đang lọc (BR-17). Nhận định xu hướng AI
+ * nằm trong khung chat (PRICE-UC02/BR-10).
  */
 export function HistoryPage() {
   const { portfolio, metal: chosen } = usePortfolio();
@@ -63,7 +62,6 @@ export function HistoryPage() {
       ) : (
         <p className="text-muted">Đang tải…</p>
       )}
-      {history && <TrendCard metal={metal} />}
     </div>
   );
 }

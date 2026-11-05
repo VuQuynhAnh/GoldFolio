@@ -90,6 +90,14 @@ CREATE TABLE IF NOT EXISTS trend_insights (
   UNIQUE (user_id, metal, date)
 );
 
+-- Số câu hỏi AI mỗi người mỗi ngày (PRICE-UC03). Nội dung chat không lưu.
+CREATE TABLE IF NOT EXISTS chat_usage (
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  date    TEXT NOT NULL,
+  count   INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, date)
+);
+
 CREATE TABLE IF NOT EXISTS purchases (
   id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

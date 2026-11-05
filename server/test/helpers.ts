@@ -29,7 +29,7 @@ export async function testDb(): Promise<Db> {
     await initSchema(shared);
   }
   await shared.exec(
-    "TRUNCATE users, sessions, brands, products, price_snapshots, price_points, daily_misses, purchases, trend_insights RESTART IDENTITY CASCADE",
+    "TRUNCATE users, sessions, brands, products, price_snapshots, price_points, daily_misses, purchases, trend_insights, chat_usage RESTART IDENTITY CASCADE",
   );
   await seedCatalog(shared);
   return shared;
