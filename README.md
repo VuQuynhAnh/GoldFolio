@@ -60,6 +60,22 @@ setx NODE_EXTRA_CA_CERTS "C:\duong-dan\ca-cong-ty.pem"
 
 Đừng tắt kiểm tra TLS (`NODE_TLS_REJECT_UNAUTHORIZED=0`).
 
+## Deploy lên Render (một Web Service)
+
+Server trả luôn giao diện web đã build (`web/dist`), nên chỉ cần một service.
+
+| Mục | Giá trị |
+|---|---|
+| Branch | `main` |
+| Language | Node (phiên bản lấy từ `.nvmrc`) |
+| Build Command | `npm ci --include=dev && npm run build` |
+| Start Command | `npm run start` |
+| Region | gần region của Supabase (vd Supabase Paris → Render Frankfurt) |
+| Biến môi trường | `DATABASE_URL`, `NODE_ENV=production` (cookie chỉ gửi qua HTTPS); `DB_SSL_CA` bỏ trống. **Không** đặt `PORT`, Render tự cấp |
+
+- `--include=dev` là bắt buộc: có `NODE_ENV=production` thì `npm ci` bỏ qua devDependencies (vite, tailwind…) và build web hỏng.
+- Gói Free ngủ sau 15 phút không có truy cập: lần mở đầu chậm 30–50 giây, lúc ngủ không lấy giá 15 phút/lần (giá theo ngày vẫn tự bù khi cần).
+
 ## API
 
 Mọi API trừ `/api/auth/*` cần đăng nhập (cookie `sid`). Lỗi trả `{ error, fields? }`, thông báo tiếng Việt.

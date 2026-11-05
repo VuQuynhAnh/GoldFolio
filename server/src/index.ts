@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { createApp } from "./app";
 import { initSchema, poolDb, type Db } from "./db";
 import { seedCatalog } from "./catalog";
@@ -32,6 +34,8 @@ if (process.env.PRICE_FETCH_ENABLED !== "0") {
   );
 }
 
-createApp({ db, prices }).listen(port, () => {
+// Có bản build web (npm run build) thì server trả luôn giao diện, chạy một service trên Render
+const webDist = fileURLToPath(new URL("../../web/dist", import.meta.url));
+createApp({ db, prices, webDist: existsSync(webDist) ? webDist : undefined }).listen(port, () => {
   console.log(`GoldFolio server chạy ở http://localhost:${port}`);
 });

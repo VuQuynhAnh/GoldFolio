@@ -15,7 +15,8 @@
     "test": "npm run test -w shared && npm run test -w server && npm run test -w web",
     "lint": "npm run lint -w shared && npm run lint -w server && npm run lint -w web",
     "build": "npm run build -w web",
-    "seed": "npm run seed -w server"
+    "seed": "npm run seed -w server",
+    "start": "npm run start -w server"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
