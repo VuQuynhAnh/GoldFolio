@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { toMg } from "../src/units";
-import { totalFromUnit, unitFromTotal } from "../src/money";
+import { convertUnitPrice, totalFromUnit, unitFromTotal } from "../src/money";
+
+describe("đổi đơn giá giữa các đơn vị (BR-5, BR-6)", () => {
+  // SC: HOLD-UC01-SC44
+  it("13.900.000/chỉ = 139.000.000/lượng; 13.850.000/chỉ ≈ 3.693.333/g", () => {
+    expect(convertUnitPrice(13_900_000, "chi", "luong")).toBe(139_000_000);
+    expect(convertUnitPrice(13_850_000, "chi", "gram")).toBe(3_693_333);
+    expect(convertUnitPrice(1_591_000, "luong", "kg")).toBe(42_426_667);
+    expect(convertUnitPrice(13_850_000, "chi", "chi")).toBe(13_850_000);
+  });
+
+  it("đơn giá theo lượng × khối lượng theo lượng", () => {
+    expect(totalFromUnit(138_500_000, toMg(1, "luong"), "luong")).toBe(138_500_000);
+    expect(unitFromTotal(41_000_000, toMg(7.5, "gram"), "gram")).toBe(5_466_667);
+  });
+});
 
 describe("đơn giá ↔ tổng tiền", () => {
   // SC: HOLD-UC01-SC2

@@ -1,11 +1,16 @@
 import { Link } from "react-router-dom";
 import { formatDateTimeVn, formatVnd } from "@goldfolio/shared";
+import type { Totals } from "../api";
 import { usePortfolio } from "../portfolio-context";
 import { LoadError, Pnl } from "../components/ui";
+import { METAL_NAME, MetalFilter } from "../components/MetalFilter";
 
-/** Tab Tổng quan: giá trị hiện tại, lãi/lỗ, nhóm kim loại → sản phẩm (HOLD-UC01/BR-9…11). */
+/**
+ * Tab Tổng quan: giá trị hiện tại, lãi/lỗ, nhóm kim loại → sản phẩm (HOLD-UC01/BR-9…11),
+ * lọc theo Vàng | Bạc | Tất cả (BR-17).
+ */
 export function OverviewPage() {
-  const { portfolio, error, reload } = usePortfolio();
+  const { portfolio, error, reload, metal } = usePortfolio();
   // Lỗi khi đã có số cũ thì chỉ hiện dải báo lỗi phía trên, giữ nguyên số đang xem
   const errorBar = error && <LoadError message={error} onRetry={() => void reload()} />;
 
@@ -18,31 +23,40 @@ export function OverviewPage() {
         <h1 className="sr-only">Tổng quan</h1>
         <p className="mb-6 text-muted">Bạn chưa có lần mua nào</p>
         <Link to="/them" className="flex min-h-12 items-center rounded-xl bg-gold px-6 font-medium text-bg">
-          Thêm lần mua
+          Thêm tài sản
         </Link>
       </div>
     );
   }
 
-  const s = portfolio.summary;
+  // Vàng/Bạc: số của riêng nhóm kim loại đó; Tất cả: tổng cả danh mục
+  const groups = metal === "all" ? portfolio.groups : portfolio.groups.filter((g) => g.metal === metal);
+  const totals: Totals | undefined = metal === "all" ? portfolio.summary : groups[0];
+  const title = metal === "all" ? "Giá trị hiện tại" : `Giá trị ${METAL_NAME[metal]}`;
+
   return (
     <div className="space-y-4">
       <h1 className="sr-only">Tổng quan</h1>
       {errorBar}
-      <section className="rounded-2xl border border-gold/40 bg-gradient-to-br from-gold/20 via-surface to-surface p-5">
-        <div className="text-sm text-muted">Giá trị hiện tại</div>
-        <div className="num text-4xl font-semibold tracking-tight text-gold-soft">{formatVnd(s.value)}</div>
-        <Pnl pnl={s.pnl} pct={s.pct} className="text-lg" />
-        {/* Ghi ngay dưới số tổng để không ai tưởng tổng đã gồm mọi lần mua (BR-9) */}
-        {s.excludedCount > 0 && <div className="mt-1 text-sm text-muted">Không gồm {s.excludedCount} lần mua chưa có giá</div>}
-        <div className="mt-4 flex items-baseline justify-between border-t border-gold/30 pt-3 text-sm">
-          <span className="text-muted">Tổng tiền mua</span>
-          <span className="num font-medium">{formatVnd(s.totalCost)}</span>
-        </div>
-        {s.priceTime && <div className="mt-1 text-xs text-muted">Giá cập nhật lúc {formatDateTimeVn(s.priceTime)}</div>}
-      </section>
+      <MetalFilter />
+      {!totals ? (
+        <p className="pt-8 text-center text-muted">Chưa có tài sản {metal === "all" ? "" : METAL_NAME[metal]}</p>
+      ) : (
+        <section className="rounded-2xl border border-gold/40 bg-gradient-to-br from-gold/20 via-surface to-surface p-5">
+          <div className="text-sm text-muted">{title}</div>
+          <div className="num text-4xl font-semibold tracking-tight text-gold-soft">{formatVnd(totals.value)}</div>
+          <Pnl pnl={totals.pnl} pct={totals.pct} className="text-lg" />
+          {/* Ghi ngay dưới số tổng để không ai tưởng tổng đã gồm mọi lần mua (BR-9) */}
+          {totals.excludedCount > 0 && <div className="mt-1 text-sm text-muted">Không gồm {totals.excludedCount} lần mua chưa có giá</div>}
+          <div className="mt-4 flex items-baseline justify-between border-t border-gold/30 pt-3 text-sm">
+            <span className="text-muted">Tổng tiền mua</span>
+            <span className="num font-medium">{formatVnd(totals.totalCost)}</span>
+          </div>
+          {totals.priceTime && <div className="mt-1 text-xs text-muted">Giá cập nhật lúc {formatDateTimeVn(totals.priceTime)}</div>}
+        </section>
+      )}
 
-      {portfolio.groups.map((g) => (
+      {groups.map((g) => (
         <section key={g.metal} className="rounded-2xl border border-line bg-surface">
           <div className="flex items-baseline justify-between px-4 pt-4">
             <h2 className="font-semibold">

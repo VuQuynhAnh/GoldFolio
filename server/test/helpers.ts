@@ -4,7 +4,7 @@ import { seedCatalog } from "../src/catalog";
 import type { LiveSection, PriceSource, SourceTable } from "../src/prices/types";
 
 /** Bọc PGlite (Postgres thật chạy trong tiến trình, không cần server) theo giao diện Db của app. */
-function pgliteDb(pg: PGlite | Transaction): Db {
+export function pgliteDb(pg: PGlite | Transaction): Db {
   const db: Db = {
     query: async <T,>(sql: string, params?: unknown[]) => (await pg.query<T>(sql, params)).rows,
     one: async <T,>(sql: string, params?: unknown[]) => (await pg.query<T>(sql, params)).rows[0],

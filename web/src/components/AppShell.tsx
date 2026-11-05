@@ -10,7 +10,7 @@ import { BottomNav } from "./BottomNav";
 export function AppShell() {
   const { user, logout } = useAuth();
   const { portfolio } = usePortfolio();
-  // Danh mục rỗng đã có nút "Thêm lần mua" to ở giữa trang (BR-11), không cần nút nổi
+  // Danh mục rỗng đã có nút "Thêm tài sản" to ở giữa trang (BR-11), không cần nút nổi
   const showFab = !!portfolio && portfolio.items.length > 0;
 
   return (
@@ -31,7 +31,7 @@ export function AppShell() {
       {showFab && (
         <Link
           to="/them"
-          aria-label="Thêm lần mua"
+          aria-label="Thêm tài sản"
           className="fixed bottom-[calc(var(--spacing-tabbar)+env(safe-area-inset-bottom)+1rem)] right-[max(1rem,calc(50vw-14rem+1rem))] z-20 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-3xl leading-none text-bg shadow-lg active:bg-gold-deep"
         >
           +

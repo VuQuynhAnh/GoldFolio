@@ -33,6 +33,8 @@ export interface Product {
   name: string;
   metal: "gold" | "silver";
   priceUnit: PriceUnit;
+  /** Sản phẩm chọn sẵn khi thêm tài sản với thương hiệu này */
+  isDefault?: boolean;
 }
 
 export interface Brand {
@@ -100,7 +102,7 @@ export interface Purchase {
 }
 
 export interface History {
-  products: { productId: number; productName: string; brandName: string; totalCost: number }[];
+  products: { productId: number; productName: string; brandName: string; metal: "gold" | "silver"; totalCost: number }[];
   productId: number | null;
   priceUnit: PriceUnit | null;
   points: { date: string; unitPrice: number; qty: number; diff: number | null }[];

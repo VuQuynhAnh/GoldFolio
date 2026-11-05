@@ -151,7 +151,13 @@ export async function buildHistory(db: Db, prices: PriceService, userId: number,
   const rows = await loadRows(db, userId);
   const totals = new Map<number, { productId: number; productName: string; brandName: string; totalCost: number }>();
   for (const r of rows) {
-    const t = totals.get(r.product_id) ?? { productId: r.product_id, productName: r.product_name, brandName: r.brand_name, totalCost: 0 };
+    const t = totals.get(r.product_id) ?? {
+      productId: r.product_id,
+      productName: r.product_name,
+      brandName: r.brand_name,
+      metal: r.metal,
+      totalCost: 0,
+    };
     t.totalCost += r.total_cost;
     totals.set(r.product_id, t);
   }

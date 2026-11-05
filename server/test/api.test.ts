@@ -67,6 +67,9 @@ describe("thương hiệu và sản phẩm", () => {
     const pq = body.brands.find((b: { isDefault: boolean }) => b.isDefault);
     expect(pq.name).toBe("Phú Quý");
     expect(pq.products.map((p: { name: string }) => p.name)).toContain("Nhẫn tròn Phú Quý 999.9");
+    // Sản phẩm mặc định của form thêm tài sản
+    const defaults = pq.products.filter((p: { isDefault: boolean }) => p.isDefault);
+    expect(defaults.map((p: { name: string }) => p.name)).toEqual(["Nhẫn tròn Phú Quý 999.9"]);
   });
 
   // SC: HOLD-UC01-SC31
@@ -104,7 +107,7 @@ describe("thêm lần mua", () => {
   // SC: HOLD-UC01-SC5
   it.each([
     ["0", "Khối lượng phải lớn hơn 0"],
-    ["1,2345", "Khối lượng có tối đa 3 chữ số thập phân"],
+    ["1,25", "Khối lượng nhập theo bước 0,1 chỉ"],
     ["", "Vui lòng nhập khối lượng"],
   ])("khối lượng %j bị chặn", async (weight, message) => {
     const agent = await login();
@@ -155,6 +158,17 @@ describe("để trống giá thì tự lấy giá ngày mua (BR-16)", () => {
     });
     const pf = await agent.get("/api/portfolio");
     expect(pf.body.items[0]).toMatchObject({ priceSource: "auto", priceNote: "Giá Phú Quý ngày 15/01/2025" });
+  });
+
+  // SC: HOLD-UC01-SC44, HOLD-UC01-SC34
+  it("tự lấy giá khi nhập theo lượng: đơn giá quy sang VNĐ/lượng", async () => {
+    const agent = await login();
+    dailyRing("2025-01-15", 8_610_000);
+    const res = await agent
+      .post("/api/purchases")
+      .send({ ...base, productId: ring, weight: "1", weightUnit: "luong", purchaseDate: "2025-01-15" })
+      .expect(201);
+    expect(res.body.purchase).toMatchObject({ unitCost: 86_100_000, totalCost: 86_100_000, priceSource: "auto" });
   });
 
   // SC: HOLD-UC01-SC35
@@ -210,6 +224,22 @@ describe("để trống giá thì tự lấy giá ngày mua (BR-16)", () => {
       .send({ ...base, productId: ring, weight: "1", purchaseDate: "2025-02-03", unitPrice: 13_700_000 })
       .expect(200);
     expect(manual.body.purchase).toMatchObject({ unitCost: 13_700_000, priceSource: "manual", priceNote: "" });
+  });
+
+  // SC: HOLD-UC01-SC44
+  it("đơn giá theo đơn vị đang chọn: 1 lượng × 138.500.000/lượng", async () => {
+    const agent = await login();
+    const res = await agent
+      .post("/api/purchases")
+      .send({ ...base, productId: ring, weight: "1", weightUnit: "luong", unitPrice: 138_500_000 })
+      .expect(201);
+    expect(res.body.purchase).toMatchObject({ unitCost: 138_500_000, totalCost: 138_500_000 });
+    // Nhập theo tổng tiền với đơn vị gram: đơn giá ra VNĐ/g
+    const g = await agent
+      .post("/api/purchases")
+      .send({ ...base, productId: ring, weight: "7,5", weightUnit: "gram", priceMode: "total", totalPrice: 27_700_000 })
+      .expect(201);
+    expect(g.body.purchase).toMatchObject({ unitCost: 3_693_333, totalCost: 27_700_000 });
   });
 
   // SC: HOLD-UC01-SC33
@@ -406,7 +436,105 @@ describe("gợi ý giá mua", () => {
   });
 });
 
+describe("thêm tài sản nhiều sản phẩm một lần (BR-18)", () => {
+  const shared = { purchaseDate: "2026-11-01", purchaseTime: null, note: "Mua ở Phú Quý" };
+
+  // SC: HOLD-UC01-SC41
+  it("mỗi dòng thành một lần mua, dùng chung ngày mua và ghi chú", async () => {
+    const agent = await login();
+    const silver = await productId(db, "phuquy", "bac-thoi-10-5-luong");
+    const res = await agent
+      .post("/api/purchases/batch")
+      .send({
+        ...shared,
+        items: [
+          { productId: ring, weight: "2", weightUnit: "chi", priceMode: "unit", unitPrice: 13_850_000 },
+          { productId: silver, weight: "5", weightUnit: "luong", priceMode: "total", totalPrice: 8_000_000 },
+        ],
+      })
+      .expect(201);
+    expect(res.body.purchases).toHaveLength(2);
+    expect(res.body.purchases[0]).toMatchObject({ productId: ring, totalCost: 27_700_000, purchaseDate: "2026-11-01", note: "Mua ở Phú Quý" });
+    expect(res.body.purchases[1]).toMatchObject({ productId: silver, totalCost: 8_000_000, weightUnit: "luong" });
+    expect((await agent.get("/api/portfolio")).body.items).toHaveLength(2);
+  });
+
+  // SC: HOLD-UC01-SC42
+  it("một dòng sai thì không lưu dòng nào, lỗi gắn đúng dòng", async () => {
+    const agent = await login();
+    const res = await agent
+      .post("/api/purchases/batch")
+      .send({
+        ...shared,
+        items: [
+          { productId: ring, weight: "2", weightUnit: "chi", unitPrice: 13_850_000 },
+          { productId: ring, weight: "0", weightUnit: "chi", unitPrice: 13_850_000 },
+        ],
+      })
+      .expect(400);
+    expect(res.body.fields).toEqual({ "items.1.weight": "Khối lượng phải lớn hơn 0" });
+    expect((await agent.get("/api/portfolio")).body.items).toEqual([]);
+  });
+
+  // SC: HOLD-UC01-SC42, HOLD-UC01-SC36
+  it("dòng để trống giá mà không tự lấy được giá cũng làm cả lần thêm thất bại", async () => {
+    const agent = await login();
+    const res = await agent
+      .post("/api/purchases/batch")
+      .send({
+        ...shared,
+        purchaseDate: "2024-01-01",
+        items: [
+          { productId: ring, weight: "1", weightUnit: "chi", unitPrice: 13_000_000 },
+          { productId: ring, weight: "1", weightUnit: "chi" },
+        ],
+      })
+      .expect(400);
+    expect(res.body.fields).toEqual({ "items.1.price": "Không tìm được giá ngày này, vui lòng nhập giá mua" });
+    expect((await agent.get("/api/portfolio")).body.items).toEqual([]);
+  });
+
+  it("lỗi ô dùng chung (ngày mua) báo một lần, không lặp theo dòng", async () => {
+    const agent = await login();
+    const item = { productId: ring, weight: "1", unitPrice: 1 };
+    const res = await agent
+      .post("/api/purchases/batch")
+      .send({ ...shared, purchaseDate: "2026-11-03", items: [item, item] })
+      .expect(400);
+    expect(res.body.fields).toEqual({ purchaseDate: "Ngày mua không được sau hôm nay" });
+  });
+
+  it("không có dòng nào hoặc quá 20 dòng", async () => {
+    const agent = await login();
+    const empty = await agent.post("/api/purchases/batch").send({ ...shared, items: [] }).expect(400);
+    expect(empty.body.error).toBe("Vui lòng thêm ít nhất một sản phẩm");
+    const item = { productId: ring, weight: "1", unitPrice: 1 };
+    const many = await agent
+      .post("/api/purchases/batch")
+      .send({ ...shared, items: Array.from({ length: 21 }, () => item) })
+      .expect(400);
+    expect(many.body.error).toBe("Tối đa 20 sản phẩm mỗi lần thêm");
+  });
+});
+
 describe("biểu đồ lịch sử giá", () => {
+  it("danh sách sản phẩm kèm kim loại để web lọc Vàng/Bạc (BR-17)", async () => {
+    const agent = await login();
+    const silver = await productId(db, "phuquy", "bac-thoi-10-5-luong");
+    await agent.post("/api/purchases").send({ ...base, productId: ring, weight: "1", unitPrice: 1 });
+    await agent.post("/api/purchases").send({ ...base, productId: silver, weight: "1", weightUnit: "luong", unitPrice: 1 });
+    const { body } = await agent.get("/api/portfolio/history");
+    const metals = Object.fromEntries(body.products.map((p: { productId: number; metal: string }) => [p.productId, p.metal]));
+    expect(metals).toEqual({ [ring]: "gold", [silver]: "silver" });
+  });
+
+  // SC: HOLD-UC01-SC39
+  it("lưu được 0,1 chỉ", async () => {
+    const agent = await login();
+    const res = await agent.post("/api/purchases").send({ ...base, productId: ring, weight: "0,1", unitPrice: 13_850_000 }).expect(201);
+    expect(res.body.purchase).toMatchObject({ weight: 0.1, totalCost: 1_385_000 });
+  });
+
   // SC: HOLD-UC01-SC26
   it("điểm theo ngày mua, điểm hôm nay, giá vốn bình quân", async () => {
     const agent = await login();

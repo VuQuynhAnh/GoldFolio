@@ -4,7 +4,7 @@ import { vi } from "vitest";
 import { AuthProvider } from "../src/auth";
 import { AppRoutes } from "../src/App";
 import { api } from "../src/api";
-import type { Brand, Portfolio, PortfolioItem } from "../src/api";
+import type { Brand, Portfolio, PortfolioItem, Totals } from "../src/api";
 
 type Handler = (init?: { method?: string; body?: unknown }) => unknown | Promise<unknown>;
 
@@ -44,8 +44,9 @@ export const brands: Brand[] = [
     isDefault: true,
     hasSource: true,
     products: [
-      { id: 11, name: "Nhẫn tròn Phú Quý 999.9", metal: "gold", priceUnit: "chi" },
+      { id: 11, name: "Nhẫn tròn Phú Quý 999.9", metal: "gold", priceUnit: "chi", isDefault: true },
       { id: 12, name: "Vàng miếng SJC", metal: "gold", priceUnit: "chi" },
+      { id: 13, name: "Bạc thỏi Phú Quý 999 10 lượng, 5 lượng", metal: "silver", priceUnit: "luong" },
     ],
   },
   {
@@ -61,6 +62,11 @@ export const brands: Brand[] = [
 const zero = { totalCost: 0, value: 0, pnl: 0, pct: 0, excludedCount: 0, priceTime: null };
 
 export const emptyPortfolio: Portfolio = { summary: zero, groups: [], items: [] };
+
+/** Nhóm kim loại cho dữ liệu giả của tab Tổng quan (lọc Vàng/Bạc đọc từ nhóm, BR-17) */
+export function group(metal: "gold" | "silver", totals: Partial<Totals> = {}): Portfolio["groups"][number] {
+  return { ...zero, ...totals, metal, label: metal === "gold" ? "Vàng" : "Bạc", weightText: "1 chỉ", products: [] };
+}
 
 export const item: PortfolioItem = {
   id: 5,
@@ -87,6 +93,7 @@ export function baseHandlers(portfolio: Portfolio = emptyPortfolio): Record<stri
     "GET /portfolio": () => portfolio,
     "GET /brands": () => ({ brands }),
     "GET /portfolio/history": () => ({ products: [], productId: null, priceUnit: null, points: [], today: null, avgCost: null }),
+    "GET /prices/suggest": () => ({ unitPrice: null, label: "Chưa có giá tham khảo cho thời điểm này" }),
   };
 }
 

@@ -2,18 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ApiError } from "../src/api";
-import { baseHandlers, deferred, item, mockApi, renderAt } from "./helpers";
+import { baseHandlers, deferred, group, item, mockApi, renderAt } from "./helpers";
 
 vi.mock("../src/api", async (orig) => ({ ...(await orig<typeof import("../src/api")>()), api: vi.fn() }));
 
 beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 
-const withItem = { summary: { totalCost: 0, value: 0, pnl: 0, pct: 0, excludedCount: 0, priceTime: null }, groups: [], items: [item] };
+const withItem = { summary: { totalCost: 0, value: 0, pnl: 0, pct: 0, excludedCount: 0, priceTime: null }, groups: [group("gold")], items: [item] };
 const history = (productId: number) => ({
   products: [
-    { productId: 11, productName: "Nhẫn tròn Phú Quý 999.9", brandName: "Phú Quý", totalCost: 2 },
-    { productId: 12, productName: "Vàng miếng SJC", brandName: "Phú Quý", totalCost: 1 },
+    { productId: 11, productName: "Nhẫn tròn Phú Quý 999.9", brandName: "Phú Quý", metal: "gold", totalCost: 2 },
+    { productId: 12, productName: "Vàng miếng SJC", brandName: "Phú Quý", metal: "gold", totalCost: 1 },
   ],
   productId,
   priceUnit: "chi",
@@ -75,7 +75,7 @@ describe("tab Tổng quan", () => {
     expect(await screen.findByText("Không kết nối được máy chủ")).toBeTruthy();
     fail = false;
     await user.click(screen.getByRole("button", { name: "Thử lại" }));
-    expect(await screen.findByText("Giá trị hiện tại")).toBeTruthy();
+    expect(await screen.findByText("Giá trị vàng")).toBeTruthy();
     expect(screen.queryByText("Không kết nối được máy chủ")).toBeNull();
   });
 });

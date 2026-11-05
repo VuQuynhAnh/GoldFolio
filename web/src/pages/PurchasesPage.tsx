@@ -2,22 +2,30 @@ import { Link } from "react-router-dom";
 import { formatDateVn, formatVnd } from "@goldfolio/shared";
 import { usePortfolio } from "../portfolio-context";
 import { LoadError, Pnl } from "../components/ui";
+import { METAL_NAME, MetalFilter } from "../components/MetalFilter";
 
-/** Tab Lần mua: toàn bộ lần mua, mới nhất trước, không phân trang; chạm để sửa (HOLD-UC01/BR-10). */
+/**
+ * Tab Lần mua: toàn bộ lần mua, mới nhất trước, không phân trang; chạm để sửa (HOLD-UC01/BR-10).
+ * Chỉ hiện lần mua của kim loại đang lọc (BR-17).
+ */
 export function PurchasesPage() {
-  const { portfolio, error, reload } = usePortfolio();
+  const { portfolio, error, reload, metal } = usePortfolio();
+  const items = portfolio?.items.filter((i) => metal === "all" || i.metal === metal) ?? [];
 
   return (
     <div>
       <h1 className="mb-3 text-lg font-semibold">Lần mua</h1>
       {error && <LoadError message={error} onRetry={() => void reload()} />}
+      {portfolio && portfolio.items.length > 0 && <MetalFilter />}
       {!portfolio ? (
         !error && <p className="text-muted">Đang tải…</p>
       ) : portfolio.items.length === 0 ? (
         <p className="pt-8 text-center text-muted">Bạn chưa có lần mua nào</p>
+      ) : items.length === 0 ? (
+        <p className="pt-8 text-center text-muted">Chưa có tài sản {metal === "all" ? "" : METAL_NAME[metal]}</p>
       ) : (
         <ul className="space-y-2">
-          {portfolio.items.map((i) => (
+          {items.map((i) => (
             <li key={i.id}>
               <Link to={`/sua/${i.id}`} className="block rounded-2xl border border-line bg-surface p-4 active:bg-surface-2">
                 <div className="flex items-start justify-between gap-3">

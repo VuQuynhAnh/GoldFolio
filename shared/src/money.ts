@@ -1,4 +1,4 @@
-import { MG_PER_UNIT, type PriceUnit } from "./units";
+import { MG_PER_UNIT, type WeightUnit } from "./units";
 
 // Tiền luôn là số nguyên VNĐ. Giới hạn trên của tiền và khối lượng giữ mọi kết quả là
 // số nguyên chính xác trong JS (R-MONEY-02).
@@ -14,12 +14,20 @@ function mulDivRound(a: number, b: number, d: number): number {
   return Number((2n * n + den) / (2n * den));
 }
 
-/** Tổng tiền = đơn giá (theo đơn vị niêm yết) × khối lượng, làm tròn tới đồng (HOLD-UC01/BR-5). */
-export function totalFromUnit(unitPrice: number, weightMg: number, priceUnit: PriceUnit): number {
-  return mulDivRound(unitPrice, weightMg, MG_PER_UNIT[priceUnit]);
+/**
+ * Tổng tiền = đơn giá × khối lượng, làm tròn tới đồng. `unit` là đơn vị của đơn giá: đơn vị
+ * khối lượng người dùng đang chọn khi nhập (HOLD-UC01/BR-5), hoặc đơn vị niêm yết khi định giá.
+ */
+export function totalFromUnit(unitPrice: number, weightMg: number, unit: WeightUnit): number {
+  return mulDivRound(unitPrice, weightMg, MG_PER_UNIT[unit]);
 }
 
-/** Đơn giá = tổng tiền ÷ khối lượng quy về đơn vị niêm yết, làm tròn tới đồng (HOLD-UC01/BR-5). */
-export function unitFromTotal(total: number, weightMg: number, priceUnit: PriceUnit): number {
-  return mulDivRound(total, MG_PER_UNIT[priceUnit], weightMg);
+/** Đơn giá theo `unit` = tổng tiền ÷ khối lượng, làm tròn tới đồng (HOLD-UC01/BR-5). */
+export function unitFromTotal(total: number, weightMg: number, unit: WeightUnit): number {
+  return mulDivRound(total, MG_PER_UNIT[unit], weightMg);
+}
+
+/** Đổi đơn giá giữa các đơn vị, vd 13.900.000/chỉ → 139.000.000/lượng (BR-5, BR-6). */
+export function convertUnitPrice(price: number, from: WeightUnit, to: WeightUnit): number {
+  return from === to ? price : mulDivRound(price, MG_PER_UNIT[to], MG_PER_UNIT[from]);
 }

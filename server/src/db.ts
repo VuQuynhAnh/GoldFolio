@@ -91,5 +91,29 @@ export async function migrate(db: Db): Promise<void> {
     ALTER TABLE purchases ADD COLUMN IF NOT EXISTS price_source TEXT NOT NULL DEFAULT 'manual'
       CHECK (price_source IN ('manual', 'auto'));
     ALTER TABLE purchases ADD COLUMN IF NOT EXISTS price_note TEXT NOT NULL DEFAULT '';
+    CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY, done_at TEXT NOT NULL);
   `);
+
+  // Từ 2026-11-05 đơn giá theo đơn vị khối lượng người dùng nhập, trước đó theo đơn vị niêm yết
+  // của sản phẩm (HOLD-UC01/BR-5). Lần mua cũ có hai đơn vị khác nhau: tính lại đơn giá từ tổng
+  // tiền (tổng tiền là số thật, giữ nguyên). Chạy đúng một lần, đánh dấu trong app_migrations.
+  await runOnce(
+    db,
+    "don-gia-theo-don-vi-nhap",
+    `UPDATE purchases pu
+       SET unit_cost = GREATEST(1, ROUND(pu.total_cost::numeric *
+         (CASE pu.input_unit WHEN 'chi' THEN 3750 WHEN 'luong' THEN 37500 WHEN 'gram' THEN 1000 ELSE 1000000 END)
+         / pu.weight_mg))
+     FROM products p
+     WHERE p.id = pu.product_id AND pu.input_unit <> p.price_unit`,
+  );
+}
+
+/** Chạy một bước nâng cấp dữ liệu đúng một lần (đánh dấu trong app_migrations, cùng transaction). */
+async function runOnce(db: Db, name: string, sql: string): Promise<void> {
+  if (await db.one("SELECT 1 FROM app_migrations WHERE name = $1", [name])) return;
+  await db.tx(async (t) => {
+    await t.exec(sql);
+    await t.query("INSERT INTO app_migrations (name, done_at) VALUES ($1, $2)", [name, new Date().toISOString()]);
+  });
 }

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { baseHandlers, item, mockApi, renderAt } from "./helpers";
+import { baseHandlers, group, item, mockApi, renderAt } from "./helpers";
 
 vi.mock("../src/api", async (orig) => ({ ...(await orig<typeof import("../src/api")>()), api: vi.fn() }));
 
@@ -14,7 +14,7 @@ describe("tổng quan", () => {
     mockApi(baseHandlers());
     renderAt("/");
     expect(await screen.findByText("Bạn chưa có lần mua nào")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Thêm lần mua" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Thêm tài sản" })).toBeTruthy();
   });
 
   // SC: HOLD-UC01-SC17
@@ -22,7 +22,7 @@ describe("tổng quan", () => {
     mockApi(
       baseHandlers({
         summary: { totalCost: 27_700_000, value: 27_100_000, pnl: -600_000, pct: -2.17, excludedCount: 1, priceTime: "2026-11-02T10:26:00.000Z" },
-        groups: [],
+        groups: [group("gold", { totalCost: 27_700_000, value: 27_100_000, pnl: -600_000, pct: -2.17, excludedCount: 1, priceTime: "2026-11-02T10:26:00.000Z" })],
         items: [item, { ...item, id: 6, current: null }],
       }),
     );
@@ -47,8 +47,8 @@ describe("thanh tab và nút thêm", () => {
     await user.click(screen.getByRole("link", { name: "Lịch sử" }));
     expect(await screen.findByRole("heading", { name: "Lịch sử giá" })).toBeTruthy();
 
-    await user.click(screen.getByRole("link", { name: "Thêm lần mua" }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Thêm lần mua" })).toBeTruthy());
+    await user.click(screen.getByRole("link", { name: "Thêm tài sản" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Thêm tài sản" })).toBeTruthy());
     // Trang form toàn màn hình: không còn thanh tab
     expect(screen.queryByRole("navigation", { name: "Điều hướng chính" })).toBeNull();
   });

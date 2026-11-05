@@ -27,7 +27,16 @@ const tickDate = (t: number) =>
  * một điểm, điểm hôm nay khác màu, đường nét đứt là giá vốn bình quân. Trục ngang là
  * trục thời gian: hai lần mua cách nhau một năm phải xa hơn hai lần cách nhau một ngày.
  */
-export function HistoryChart({ history, onSelect }: { history: History; onSelect(productId: number): void }) {
+export function HistoryChart({
+  history,
+  products,
+  onSelect,
+}: {
+  history: History;
+  /** Sản phẩm cho ô chọn (đã lọc theo kim loại, BR-17) */
+  products: History["products"];
+  onSelect(productId: number): void;
+}) {
   if (!history.productId || !history.priceUnit) return null;
   const unit = history.priceUnit;
   const data: Datum[] = history.points.map((p) => ({ t: toT(p.date), date: p.date, bought: p.unitPrice, qty: p.qty, diff: p.diff }));
@@ -44,7 +53,7 @@ export function HistoryChart({ history, onSelect }: { history: History; onSelect
           value={history.productId}
           onChange={(e) => onSelect(Number(e.target.value))}
         >
-          {history.products.map((p) => (
+          {products.map((p) => (
             <option key={p.productId} value={p.productId}>
               {p.productName} · {p.brandName}
             </option>

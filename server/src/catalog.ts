@@ -11,6 +11,8 @@ interface ProductDef {
   unit: PriceUnit;
   /** Tên khác mà nguồn giá dùng cho sản phẩm này (khớp không phân biệt hoa thường, PRICE-BR-008) */
   aliases?: string[];
+  /** Sản phẩm chọn sẵn khi mở form thêm tài sản với thương hiệu này (HOLD-UC01/BR-1) */
+  isDefault?: boolean;
 }
 
 interface BrandDef {
@@ -35,7 +37,8 @@ export const CATALOG: BrandDef[] = [
     hasSource: true,
     products: [
       { code: "sjc", name: "Vàng miếng SJC", metal: "gold", unit: "chi" },
-      { code: "nhan-tron-9999", name: "Nhẫn tròn Phú Quý 999.9", metal: "gold", unit: "chi" },
+      // Sản phẩm mặc định: vàng nhẫn tròn 999.9 (user chốt 2026-11-05)
+      { code: "nhan-tron-9999", name: "Nhẫn tròn Phú Quý 999.9", metal: "gold", unit: "chi", isDefault: true },
       { code: "1-luong-9999", name: "Phú Quý 1 Lượng 999.9", metal: "gold", unit: "chi" },
       { code: "1-luong-999", name: "Phú Quý 1 lượng 99.9", metal: "gold", unit: "chi" },
       { code: "trang-suc-9999", name: "Vàng trang sức 999.9", metal: "gold", unit: "chi" },
@@ -126,6 +129,11 @@ export const CATALOG: BrandDef[] = [
     products: [{ code: "sjc-9999", name: "Vàng miếng SJC 999.9", metal: "gold", unit: "chi" }],
   },
 ];
+
+/** Sản phẩm này có phải sản phẩm mặc định của thương hiệu trong CATALOG không. */
+export function isDefaultProduct(brandCode: string, productCode: string): boolean {
+  return !!CATALOG.find((b) => b.code === brandCode)?.products.find((p) => p.code === productCode)?.isDefault;
+}
 
 /** Thêm hoặc cập nhật thương hiệu/sản phẩm theo CATALOG. Không xoá gì, chạy lại nhiều lần được. */
 export async function seedCatalog(db: Db, catalog: BrandDef[] = CATALOG): Promise<void> {

@@ -4,6 +4,7 @@ import { HttpError, asyncHandler, currentUserId } from "./http";
 import type { PriceService } from "./prices/service";
 import { sellPriceAt } from "./prices/suggest";
 import { buildHistory, buildPortfolio } from "./portfolio/service";
+import { isDefaultProduct } from "./catalog";
 
 /** Thương hiệu và sản phẩm chọn được cho lần mua mới (HOLD-UC01/BR-1, BR-2, BR-15). */
 export function brandsRouter(db: Db): Router {
@@ -14,8 +15,8 @@ export function brandsRouter(db: Db): Router {
       const brands = await db.query<{ id: number; code: string; name: string; is_default: number; has_source: number }>(
         "SELECT * FROM brands ORDER BY sort_order",
       );
-      const products = await db.query<{ id: number; brand_id: number; name: string; metal: string; price_unit: string }>(
-        "SELECT id, brand_id, name, metal, price_unit FROM products WHERE active = 1 ORDER BY sort_order",
+      const products = await db.query<{ id: number; brand_id: number; code: string; name: string; metal: string; price_unit: string }>(
+        "SELECT id, brand_id, code, name, metal, price_unit FROM products WHERE active = 1 ORDER BY sort_order",
       );
       res.json({
         brands: brands.map((b) => ({
@@ -26,7 +27,7 @@ export function brandsRouter(db: Db): Router {
           hasSource: b.has_source === 1,
           products: products
             .filter((p) => p.brand_id === b.id)
-            .map((p) => ({ id: p.id, name: p.name, metal: p.metal, priceUnit: p.price_unit })),
+            .map((p) => ({ id: p.id, name: p.name, metal: p.metal, priceUnit: p.price_unit, isDefault: isDefaultProduct(b.code, p.code) })),
         })),
       });
     }),

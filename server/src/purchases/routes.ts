@@ -3,7 +3,11 @@ import { fromMg, type WeightUnit } from "@goldfolio/shared";
 import type { Db } from "../db";
 import { HttpError, asyncHandler, currentUserId } from "../http";
 import type { PriceService } from "../prices/service";
-import { resolvePrice, validatePurchase } from "./validate";
+import { resolvePrice, validatePurchase, type PurchaseInput } from "./validate";
+
+// Ô dùng chung cho mọi dòng của lần thêm tài sản: lỗi báo một lần, không gắn theo dòng
+const SHARED_FIELDS = new Set(["purchaseDate", "purchaseTime", "note"]);
+const MAX_ITEMS = 20;
 
 interface PurchaseRow {
   id: number;
@@ -65,19 +69,60 @@ export function purchasesRouter(db: Db, prices: PriceService, now: () => Date): 
     }),
   );
 
+  const insert = async (t: Db, userId: number, p: PurchaseInput): Promise<number> => {
+    const stamp = now().toISOString();
+    const row = await t.one<{ id: number }>(
+      `INSERT INTO purchases (user_id, product_id, weight_mg, input_unit, purchase_date, purchase_time,
+         price_mode, unit_cost, total_cost, note, price_source, price_note, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+      [userId, p.productId, p.weightMg, p.inputUnit, p.purchaseDate, p.purchaseTime, p.priceMode, p.unitCost, p.totalCost, p.note, p.priceSource, p.priceNote, stamp, stamp],
+    );
+    return row!.id;
+  };
+
   router.post(
     "/",
     asyncHandler(async (req, res) => {
       const userId = currentUserId(res);
       const p = await resolvePrice(db, prices, await validatePurchase(db, req.body, now()));
-      const stamp = now().toISOString();
-      const row = await db.one<{ id: number }>(
-        `INSERT INTO purchases (user_id, product_id, weight_mg, input_unit, purchase_date, purchase_time,
-           price_mode, unit_cost, total_cost, note, price_source, price_note, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
-        [userId, p.productId, p.weightMg, p.inputUnit, p.purchaseDate, p.purchaseTime, p.priceMode, p.unitCost, p.totalCost, p.note, p.priceSource, p.priceNote, stamp, stamp],
-      );
-      res.status(201).json({ purchase: toDto(await findOwn(row!.id, userId)) });
+      const id = await insert(db, userId, p);
+      res.status(201).json({ purchase: toDto(await findOwn(id, userId)) });
+    }),
+  );
+
+  // Thêm tài sản nhiều sản phẩm một lần (HOLD-UC01/BR-18): ngày giờ và ghi chú dùng chung, mỗi dòng
+  // thành một lần mua. Kiểm mọi dòng (kể cả tự lấy giá, BR-16) trước khi ghi; dòng nào sai thì
+  // không ghi dòng nào, lỗi gắn theo dòng dạng "items.<i>.<ô>".
+  router.post(
+    "/batch",
+    asyncHandler(async (req, res) => {
+      const userId = currentUserId(res);
+      const b = (req.body ?? {}) as Record<string, unknown>;
+      const items = Array.isArray(b.items) ? (b.items as Record<string, unknown>[]) : [];
+      if (items.length === 0) throw new HttpError(400, "Vui lòng thêm ít nhất một sản phẩm");
+      if (items.length > MAX_ITEMS) throw new HttpError(400, "Tối đa 20 sản phẩm mỗi lần thêm");
+      const shared = { purchaseDate: b.purchaseDate, purchaseTime: b.purchaseTime, note: b.note };
+
+      const fields: Record<string, string> = {};
+      const inputs: PurchaseInput[] = [];
+      for (const [i, item] of items.entries()) {
+        try {
+          inputs.push(await resolvePrice(db, prices, await validatePurchase(db, { ...item, ...shared }, now())));
+        } catch (err) {
+          if (!(err instanceof HttpError) || !err.fields) throw err;
+          for (const [k, v] of Object.entries(err.fields)) fields[SHARED_FIELDS.has(k) ? k : `items.${i}.${k}`] = v;
+        }
+      }
+      if (Object.keys(fields).length) throw new HttpError(400, Object.values(fields)[0]!, fields);
+
+      const ids = await db.tx(async (t) => {
+        const out: number[] = [];
+        for (const p of inputs) out.push(await insert(t, userId, p));
+        return out;
+      });
+      const purchases = [];
+      for (const id of ids) purchases.push(toDto(await findOwn(id, userId)));
+      res.status(201).json({ purchases });
     }),
   );
 

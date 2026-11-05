@@ -1,6 +1,7 @@
 import {
   MAX_MONEY,
   MAX_WEIGHT_MG,
+  convertUnitPrice,
   WEIGHT_UNITS,
   parseWeight,
   toMg,
@@ -66,7 +67,7 @@ export async function validatePurchase(db: Db, body: unknown, now: Date, current
 
   const inputUnit = (b.weightUnit ?? "chi") as WeightUnit;
   if (!WEIGHT_UNITS.includes(inputUnit)) fields.weightUnit = "Đơn vị khối lượng không hợp lệ";
-  const weight = parseWeight(typeof b.weight === "number" || typeof b.weight === "string" ? b.weight : "");
+  const weight = parseWeight(typeof b.weight === "number" || typeof b.weight === "string" ? b.weight : "", inputUnit);
   if (!weight.ok) fields.weight = weight.error;
   const weightMg = weight.ok && !fields.weightUnit ? toMg(weight.value, inputUnit) : 0;
   // Giới hạn trên để tiền luôn là số nguyên chính xác (R-MONEY-02)
@@ -102,8 +103,9 @@ export async function validatePurchase(db: Db, body: unknown, now: Date, current
   let unitCost = 0;
   let totalCost = 0;
   if (price !== null && !fields.price && !fields.weight && !fields.weightUnit && !fields.productId) {
-    unitCost = priceMode === "unit" ? price! : unitFromTotal(price!, weightMg, priceUnit);
-    totalCost = priceMode === "total" ? price! : totalFromUnit(price!, weightMg, priceUnit);
+    // Đơn giá theo đơn vị khối lượng người dùng chọn (VNĐ/chỉ, VNĐ/lượng…), không theo đơn vị niêm yết (BR-5)
+    unitCost = priceMode === "unit" ? price! : unitFromTotal(price!, weightMg, inputUnit);
+    totalCost = priceMode === "total" ? price! : totalFromUnit(price!, weightMg, inputUnit);
     if (totalCost > MAX_MONEY) fields.price = "Tổng tiền tối đa 1.000 tỷ đồng";
     else if (unitCost > MAX_MONEY) fields.price = "Đơn giá tối đa 1.000 tỷ đồng";
     else if (unitCost <= 0 || totalCost <= 0) fields.price = "Giá mua quá nhỏ so với khối lượng";
@@ -125,8 +127,10 @@ export async function resolvePrice(db: Db, prices: PriceService, input: Purchase
   if (input.priceSource === "manual") return input;
   const found = await sellPriceAt(db, prices, input.productId, input.purchaseDate, input.purchaseTime);
   if (!found) throw new HttpError(400, AUTO_PRICE_NOT_FOUND, { price: AUTO_PRICE_NOT_FOUND });
+  // Giá nguồn theo đơn vị niêm yết: tổng tiền tính theo đơn vị đó, đơn giá lưu quy sang đơn vị đã nhập (BR-5)
   const totalCost = totalFromUnit(found.unitPrice, input.weightMg, input.priceUnit);
+  const unitCost = convertUnitPrice(found.unitPrice, input.priceUnit, input.inputUnit);
   if (totalCost > MAX_MONEY) throw new HttpError(400, "Tổng tiền tối đa 1.000 tỷ đồng", { price: "Tổng tiền tối đa 1.000 tỷ đồng" });
   if (totalCost <= 0) throw new HttpError(400, "Giá mua quá nhỏ so với khối lượng", { price: "Giá mua quá nhỏ so với khối lượng" });
-  return { ...input, priceMode: "unit", unitCost: found.unitPrice, totalCost, priceNote: found.label };
+  return { ...input, priceMode: "unit", unitCost, totalCost, priceNote: found.label };
 }

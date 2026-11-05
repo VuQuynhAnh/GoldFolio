@@ -1,26 +1,30 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import {
-  UNIT_LABEL,
-  WEIGHT_UNITS,
-  formatVnd,
-  parseWeight,
-  toMg,
-  totalFromUnit,
-  unitFromTotal,
-  vnDate,
-  type WeightUnit,
-} from "@goldfolio/shared";
-import { ApiError, api, type Purchase } from "../api";
+import { vnDate } from "@goldfolio/shared";
+import { ApiError, api, type Brand, type Product, type Purchase } from "../api";
 import { usePortfolio } from "../portfolio-context";
 import { ConfirmSheet } from "../components/ConfirmSheet";
+import { PurchaseLine, newLine, type LineState } from "../components/PurchaseLine";
 import { Field, LoadError, inputClass } from "../components/ui";
 
-const digits = (s: string) => s.replace(/\D/g, "");
+const MAX_LINES = 20;
+const defaultProductOf = (b?: Brand): number | "" => b?.products.find((p) => p.isDefault)?.id ?? "";
+
+/** Giá của một dòng gửi lên server: chỉ gửi ô người dùng đã nhập; trống cả hai thì server tự lấy giá (BR-16) */
+function linePayload(l: LineState) {
+  return {
+    productId: l.productId || undefined,
+    weight: l.weight,
+    weightUnit: l.weightUnit,
+    priceMode: l.priceMode,
+    unitPrice: l.priceMode === "unit" && l.unitPrice ? Number(l.unitPrice) : undefined,
+    totalPrice: l.priceMode === "total" && l.totalPrice ? Number(l.totalPrice) : undefined,
+  };
+}
 
 /**
- * Trang thêm (`/them`) và sửa (`/sua/:id`) lần mua, toàn màn hình, nút Lưu dính đáy
- * trong tầm ngón cái (HOLD-UC01/BR-1…8, BR-12; R-UI-03).
+ * Trang **Thêm tài sản** (`/them`, nhiều sản phẩm một lần, BR-18) và **Sửa lần mua** (`/sua/:id`,
+ * một sản phẩm, BR-20). Toàn màn hình, nút Lưu dính đáy trong tầm ngón cái (R-UI-03).
  */
 export function PurchaseFormPage() {
   const { id } = useParams();
@@ -31,41 +35,29 @@ export function PurchaseFormPage() {
   const editing = editId ? (portfolio?.items.find((i) => i.id === editId) ?? null) : null;
 
   const [brandId, setBrandId] = useState<number | "">("");
-  const [productId, setProductId] = useState<number | "">("");
-  const [weight, setWeight] = useState("");
-  const [weightUnit, setWeightUnit] = useState<WeightUnit>("chi");
+  const [lines, setLines] = useState<LineState[]>([]);
   const [purchaseDate, setPurchaseDate] = useState(vnDate());
   const [purchaseTime, setPurchaseTime] = useState("");
-  const [priceMode, setPriceMode] = useState<"unit" | "total">("unit");
-  const [unitPrice, setUnitPrice] = useState("");
-  const [totalPrice, setTotalPrice] = useState("");
   const [note, setNote] = useState("");
-  const [suggestLabel, setSuggestLabel] = useState<string | null>(null);
+  // Lỗi ô dùng chung (ngày, giờ, ghi chú) và lỗi theo dòng ("items.<i>.<ô>" của server)
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // Lần mua có giá tự lấy: ô giá để trống (lưu mà không nhập thì server lấy lại giá, BR-16),
-  // giá cũ hiện làm chữ mờ; người dùng gõ giá thì bỏ nhãn
-  const [autoPrice, setAutoPrice] = useState<{ note: string; unitCost: number } | null>(null);
   // Trang sửa: chỉ cho thao tác khi đã nạp xong lần mua (R-UI-04)
   const [load, setLoad] = useState<"loading" | "ready" | "notfound" | "error">(editId ? "loading" : "ready");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  // Số vừa được gợi ý: ô giá còn đúng số này nghĩa là người dùng chưa sửa tay (BR-6)
-  const lastSuggested = useRef<string | null>(null);
-  // Giá trị hiện tại của ô giá cho kết quả gợi ý trả về muộn: người dùng có thể đã gõ
-  // trong lúc chờ, so với giá trị lúc gửi yêu cầu sẽ ghi đè số vừa gõ (R-UI-02)
-  const priceNow = useRef({ priceMode, unitPrice });
-  priceNow.current = { priceMode, unitPrice };
 
   // Mở từ link ngoài (không có trang trước trong app) thì "quay lại" về tab Lần mua
   const goBack = () => (location.key === "default" ? navigate("/lan-mua", { replace: true }) : navigate(-1));
 
-  // Thêm mới: thương hiệu mặc định Phú Quý, khi danh sách thương hiệu đã nạp (BR-1)
+  // Thêm mới: thương hiệu mặc định Phú Quý, một dòng với sản phẩm mặc định (BR-1)
   useEffect(() => {
     if (editId || brandId !== "" || brands.length === 0) return;
-    setBrandId((brands.find((b) => b.isDefault) ?? brands[0])!.id);
+    const b = brands.find((x) => x.isDefault) ?? brands[0]!;
+    setBrandId(b.id);
+    setLines([newLine(defaultProductOf(b))]);
   }, [brands, brandId, editId]);
 
   // Sửa: nạp lần mua, không gợi ý lại giá (BR-7)
@@ -75,21 +67,22 @@ export function PurchaseFormPage() {
     api<{ purchase: Purchase }>(`/purchases/${editId}`)
       .then(({ purchase: p }) => {
         setBrandId(p.brandId);
-        setProductId(p.productId);
-        setWeight(String(p.weight).replace(".", ","));
-        setWeightUnit(p.weightUnit);
         setPurchaseDate(p.purchaseDate);
         setPurchaseTime(p.purchaseTime ?? "");
-        setPriceMode(p.priceMode);
-        if (p.priceSource === "auto") {
-          setAutoPrice({ note: p.priceNote, unitCost: p.unitCost });
-          setUnitPrice("");
-          setTotalPrice("");
-        } else {
-          setUnitPrice(String(p.unitCost));
-          setTotalPrice(String(p.totalCost));
-        }
         setNote(p.note);
+        const auto = p.priceSource === "auto";
+        setLines([
+          {
+            ...newLine(p.productId),
+            weight: String(p.weight).replace(".", ","),
+            weightUnit: p.weightUnit,
+            priceMode: p.priceMode,
+            // Giá tự lấy: để trống ô giá, lưu mà không nhập thì server lấy lại (BR-16)
+            unitPrice: auto ? "" : String(p.unitCost),
+            totalPrice: auto ? "" : String(p.totalCost),
+            autoPrice: auto ? { note: p.priceNote, unitCost: p.unitCost } : null,
+          },
+        ]);
         setLoad("ready");
       })
       .catch((err) => {
@@ -104,48 +97,24 @@ export function PurchaseFormPage() {
 
   const brand = brands.find((b) => b.id === brandId);
   // Lần mua cũ của sản phẩm đã biến mất khỏi bảng giá vẫn sửa được (BR-15)
-  const products = useMemo(() => {
+  const products = useMemo<Product[]>(() => {
     const list = brand?.products ?? [];
-    if (editing && editing.productId === productId && !list.some((p) => p.id === productId)) {
+    if (editing && !list.some((p) => p.id === editing.productId)) {
       return [...list, { id: editing.productId, name: editing.productName, metal: editing.metal, priceUnit: editing.priceUnit }];
     }
     return list;
-  }, [brand, editing, productId]);
-  const product = products.find((p) => p.id === productId);
-  const priceUnit = product?.priceUnit ?? "chi";
+  }, [brand, editing]);
 
-  // Gợi ý đơn giá theo sản phẩm + ngày giờ mua, chỉ khi thêm mới (BR-6)
-  useEffect(() => {
-    if (editId || !productId || !purchaseDate) return;
-    let cancelled = false;
-    const q = new URLSearchParams({ productId: String(productId), date: purchaseDate });
-    if (purchaseTime) q.set("time", purchaseTime);
-    api<{ unitPrice: number | null; label: string }>(`/prices/suggest?${q}`)
-      .then((s) => {
-        if (cancelled) return;
-        setSuggestLabel(s.label);
-        const cur = priceNow.current;
-        const untouched = cur.priceMode === "unit" && (cur.unitPrice === "" || cur.unitPrice === lastSuggested.current);
-        if (!untouched) return;
-        const next = s.unitPrice === null ? "" : String(s.unitPrice);
-        lastSuggested.current = next || null;
-        setUnitPrice(next);
-      })
-      .catch(() => !cancelled && setSuggestLabel(null));
-    return () => {
-      cancelled = true;
-    };
-    // Chỉ gợi ý lại khi đổi sản phẩm hoặc thời điểm mua, không khi người dùng gõ giá
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, purchaseDate, purchaseTime, editId]);
+  // Gộp theo key: kết quả gợi ý về muộn chỉ đụng tới đúng ô của đúng dòng
+  const updateLine = (key: number, patch: Partial<LineState>) =>
+    setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
-  // Nhập một trong hai, số kia tự tính theo khối lượng (BR-5)
-  const parsed = parseWeight(weight);
-  const weightMg = parsed.ok ? toMg(parsed.value, weightUnit) : 0;
-  const shownUnit =
-    priceMode === "unit" ? unitPrice : weightMg && totalPrice ? String(unitFromTotal(Number(totalPrice), weightMg, priceUnit)) : "";
-  const shownTotal =
-    priceMode === "total" ? totalPrice : weightMg && unitPrice ? String(totalFromUnit(Number(unitPrice), weightMg, priceUnit)) : "";
+  const lineErrors = (i: number) =>
+    Object.fromEntries(
+      Object.entries(errors)
+        .filter(([k]) => k.startsWith(`items.${i}.`))
+        .map(([k, v]) => [k.slice(`items.${i}.`.length), v]),
+    );
 
   const done = async () => {
     await reload();
@@ -157,23 +126,24 @@ export function PurchaseFormPage() {
     setBusy(true);
     setErrors({});
     setFormError(null);
-    const body = {
-      productId: productId || undefined,
-      weight,
-      weightUnit,
-      purchaseDate,
-      purchaseTime: purchaseTime || null,
-      priceMode,
-      unitPrice: priceMode === "unit" && unitPrice ? Number(unitPrice) : undefined,
-      totalPrice: priceMode === "total" && totalPrice ? Number(totalPrice) : undefined,
-      note,
-    };
+    const shared = { purchaseDate, purchaseTime: purchaseTime || null, note };
     try {
-      await api(editId ? `/purchases/${editId}` : "/purchases", { method: editId ? "PUT" : "POST", body });
+      if (editId) {
+        await api(`/purchases/${editId}`, { method: "PUT", body: { ...shared, ...linePayload(lines[0]!) } });
+      } else {
+        await api("/purchases/batch", { method: "POST", body: { ...shared, items: lines.map(linePayload) } });
+      }
       await done();
     } catch (err) {
-      if (err instanceof ApiError && Object.keys(err.fields).length) setErrors(err.fields);
-      else setFormError(err instanceof Error ? err.message : "Có lỗi xảy ra, vui lòng thử lại");
+      if (err instanceof ApiError && Object.keys(err.fields).length) {
+        // Trang sửa: server trả lỗi theo tên ô, đổi về dạng của dòng 0 cho thống nhất
+        const shared = new Set(["purchaseDate", "purchaseTime", "note"]);
+        setErrors(
+          editId
+            ? Object.fromEntries(Object.entries(err.fields).map(([k, v]) => [shared.has(k) ? k : `items.0.${k}`, v]))
+            : err.fields,
+        );
+      } else setFormError(err instanceof Error ? err.message : "Có lỗi xảy ra, vui lòng thử lại");
     } finally {
       setBusy(false);
     }
@@ -195,7 +165,7 @@ export function PurchaseFormPage() {
         <button type="button" onClick={goBack} aria-label="Quay lại" className="flex h-11 w-11 items-center justify-center text-2xl text-muted">
           ‹
         </button>
-        <h1 className="text-lg font-semibold">{editId ? "Sửa lần mua" : "Thêm lần mua"}</h1>
+        <h1 className="text-lg font-semibold">{editId ? "Sửa lần mua" : "Thêm tài sản"}</h1>
       </div>
     </header>
   );
@@ -230,9 +200,10 @@ export function PurchaseFormPage() {
             className={inputClass}
             value={brandId}
             onChange={(e) => {
+              const b = brands.find((x) => x.id === Number(e.target.value));
               setBrandId(Number(e.target.value));
-              // Đổi thương hiệu thì bỏ sản phẩm đã chọn (BR-2)
-              setProductId("");
+              // Đổi thương hiệu thì sản phẩm về sản phẩm mặc định của thương hiệu đó (BR-1, BR-2)
+              setLines((ls) => ls.map((l) => ({ ...l, productId: defaultProductOf(b) })));
             }}
           >
             {brands.map((b) => (
@@ -242,31 +213,6 @@ export function PurchaseFormPage() {
             ))}
           </select>
         </Field>
-        <Field label="Sản phẩm" error={errors.productId}>
-          <select className={inputClass} value={productId} onChange={(e) => setProductId(e.target.value ? Number(e.target.value) : "")}>
-            <option value="">— Chọn —</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <div className="grid grid-cols-[1fr_7rem] gap-3">
-          <Field label="Khối lượng" error={errors.weight}>
-            <input className={inputClass} inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="vd 2 hoặc 0,5" />
-          </Field>
-          <Field label="Đơn vị">
-            <select className={inputClass} value={weightUnit} onChange={(e) => setWeightUnit(e.target.value as WeightUnit)}>
-              {WEIGHT_UNITS.map((u) => (
-                <option key={u} value={u}>
-                  {UNIT_LABEL[u]}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Ngày mua" error={errors.purchaseDate}>
@@ -277,41 +223,30 @@ export function PurchaseFormPage() {
           </Field>
         </div>
 
-        <Field
-          label={`Đơn giá (VNĐ/${UNIT_LABEL[priceUnit]})`}
-          error={priceMode === "unit" ? errors.price : undefined}
-          hint={!editId && suggestLabel ? suggestLabel : shownUnit ? formatVnd(Number(shownUnit)) : undefined}
-        >
-          <input
-            className={inputClass + (priceMode === "unit" ? "" : " bg-surface-2 text-muted")}
-            inputMode="numeric"
-            value={shownUnit}
-            placeholder={autoPrice ? formatVnd(autoPrice.unitCost) : undefined}
-            onChange={(e) => {
-              setPriceMode("unit");
-              setUnitPrice(digits(e.target.value));
-              setAutoPrice(null);
-            }}
+        {lines.map((l, i) => (
+          <PurchaseLine
+            key={l.key}
+            line={l}
+            onChange={(patch) => updateLine(l.key, patch)}
+            products={products}
+            purchaseDate={purchaseDate}
+            purchaseTime={purchaseTime}
+            editing={!!editId}
+            errors={lineErrors(i)}
+            index={editId ? undefined : i}
+            onRemove={lines.length > 1 ? () => setLines((ls) => ls.filter((x) => x.key !== l.key)) : undefined}
           />
-        </Field>
-        <Field
-          label="Tổng tiền (VNĐ)"
-          error={priceMode === "total" ? errors.price : undefined}
-          hint={shownTotal ? formatVnd(Number(shownTotal)) : "Để trống để tự lấy giá ngày mua"}
-        >
-          <input
-            className={inputClass + (priceMode === "total" ? "" : " bg-surface-2 text-muted")}
-            inputMode="numeric"
-            value={shownTotal}
-            onChange={(e) => {
-              setPriceMode("total");
-              setTotalPrice(digits(e.target.value));
-              setAutoPrice(null);
-            }}
-          />
-        </Field>
+        ))}
 
-        {autoPrice && <p className="-mt-1 mb-3 text-sm text-gold">Giá tự lấy · {autoPrice.note}</p>}
+        {!editId && lines.length < MAX_LINES && (
+          <button
+            type="button"
+            onClick={() => setLines((ls) => [...ls, newLine(defaultProductOf(brand))])}
+            className="mb-4 min-h-12 w-full rounded-xl border border-dashed border-gold/60 text-gold"
+          >
+            + Thêm sản phẩm
+          </button>
+        )}
 
         <Field label="Ghi chú" error={errors.note}>
           <input className={inputClass} maxLength={250} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -329,7 +264,7 @@ export function PurchaseFormPage() {
       {/* Nút Lưu dính đáy, chừa vùng an toàn; bàn phím mở thì trình duyệt tự đẩy lên */}
       <div className="safe-bottom sticky bottom-0 border-t border-line bg-surface px-4 pt-3">
         <button disabled={busy || load !== "ready"} className="mb-3 min-h-12 w-full rounded-xl bg-gold font-medium text-bg active:bg-gold-deep disabled:opacity-60">
-          Lưu
+          {editId || lines.length <= 1 ? "Lưu" : `Lưu ${lines.length} sản phẩm`}
         </button>
       </div>
 
