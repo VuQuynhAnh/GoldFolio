@@ -26,18 +26,16 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
-      # Khoá ký cố định để bản mới cài đè được bản cũ (nút "Cập nhật" trong app). Chỉ cần một Secret
-      # ANDROID_KEYSTORE_PASSWORD (mật khẩu tự đặt). Lần build đầu có mật khẩu thì tự tạo khoá, khoá
-      # bằng mật khẩu đó rồi lưu vào repo (android/release-key.p12); các lần sau dùng lại.
-      # Chưa có mật khẩu thì ký bằng khoá debug: cài được nhưng mỗi bản mới phải gỡ app cũ.
+      # Khoá ký cố định để bản mới cài đè được bản cũ (nút "Cập nhật" trong app). Lần build đầu tự tạo
+      # khoá rồi lưu vào repo (android/release-key.p12); các lần sau dùng lại, không bao giờ tạo lại.
+      # Mật khẩu: Secret ANDROID_KEYSTORE_PASSWORD nếu có; không có thì dùng mật khẩu ghi sẵn dưới đây
+      # (user chốt 2026-11-18: app cá nhân, chấp nhận khoá công khai để khỏi phải đặt Secret). Rủi ro:
+      # người khác ký được APK giả cùng khoá, nhưng chỉ cài được nếu chủ máy tự tải file lạ về cài; nút
+      # Cập nhật trong app chỉ tải từ Releases của repo này.
       - name: Khoá ký cố định
         env:
-          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'goldfolio-public-key' }}
         run: |
-          if [ -z "$KS_PASS" ]; then
-            echo "::warning::Chưa đặt Secret ANDROID_KEYSTORE_PASSWORD, APK ký bằng khoá debug"
-            exit 0
-          fi
           KS=android/release-key.p12
           if [ ! -f "$KS" ]; then
             keytool -genkeypair -keystore "$KS" -storetype PKCS12 -storepass "$KS_PASS" -keypass "$KS_PASS" \
@@ -45,7 +43,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add "$KS"
-            git commit -m "chore: khoá ký APK cố định (tạo tự động, khoá bằng mật khẩu trong Secrets) [skip ci]"
+            git commit -m "chore: khoá ký APK cố định (CI tạo tự động một lần) [skip ci]"
             git push
           fi
           echo "ANDROID_KEYSTORE_FILE=$GITHUB_WORKSPACE/$KS" >> "$GITHUB_ENV"
@@ -54,8 +52,8 @@ jobs:
         working-directory: android
         env:
           VERSION_CODE: ${{ github.run_number }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'goldfolio-public-key' }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'goldfolio-public-key' }}
           ANDROID_KEY_ALIAS: app
         run: |
           gradle --no-daemon assembleRelease
