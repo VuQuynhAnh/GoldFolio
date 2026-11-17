@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Đồng xu vàng: vòng ngoài vàng, vòng trong vàng đậm (vùng an toàn 66dp ở giữa khung 108dp) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#D4AF37"
+        android:pathData="M54,28a26,26 0,1 1,0 52a26,26 0,1 1,0 -52z" />
+    <path
+        android:fillColor="#B8942A"
+        android:pathData="M54,35a19,19 0,1 1,0 38a19,19 0,1 1,0 -38z" />
+    <path
+        android:fillColor="#F0D78C"
+        android:pathData="M47,46h14v4h-14zM47,52h10v4h-10zM47,58h14v4h-14z" />
+</vector>

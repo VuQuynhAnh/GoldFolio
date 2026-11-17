@@ -48,7 +48,7 @@ interface ProductRow {
  * thì sản phẩm mặc định của thương hiệu mặc định (vàng: nhẫn tròn; bạc: sản phẩm bạc đầu tiên).
  * Chỉ sản phẩm có nguồn giá mới có giá theo ngày.
  */
-async function pickProduct(db: Db, userId: number, metal: Metal): Promise<ProductRow> {
+export async function pickProduct(db: Db, userId: number, metal: Metal): Promise<ProductRow> {
   const held = await db.one<ProductRow>(
     `SELECT p.id, p.code, p.name, p.price_unit, b.code AS brand_code FROM purchases pu
      JOIN products p ON p.id = pu.product_id JOIN brands b ON b.id = p.brand_id

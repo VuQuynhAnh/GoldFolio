@@ -8,6 +8,7 @@ import { OverviewPage } from "./pages/OverviewPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { PurchasesPage } from "./pages/PurchasesPage";
 import { PurchaseFormPage } from "./pages/PurchaseFormPage";
+import { WidgetPage } from "./pages/WidgetPage";
 
 function Protected() {
   const { user, loading } = useAuth();
@@ -36,6 +37,7 @@ export function AppRoutes() {
           <Route index element={<OverviewPage />} />
           <Route path="bieu-do" element={<HistoryPage />} />
           <Route path="chi-tiet" element={<PurchasesPage />} />
+          <Route path="widget" element={<WidgetPage />} />
           {/* Tên tab cũ: giữ link đã lưu trên điện thoại vẫn mở đúng tab */}
           <Route path="lich-su" element={<Navigate to="/bieu-do" replace />} />
           <Route path="lan-mua" element={<Navigate to="/chi-tiet" replace />} />

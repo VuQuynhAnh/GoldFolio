@@ -98,6 +98,15 @@ CREATE TABLE IF NOT EXISTS chat_usage (
   PRIMARY KEY (user_id, date)
 );
 
+-- Mã cho widget màn hình chính (HOLD-UC02): mỗi người một mã, chỉ lưu bản băm SHA-256.
+-- Mã chỉ đọc được số liệu widget; tạo mã mới thì mã cũ hết hiệu lực.
+CREATE TABLE IF NOT EXISTS widget_tokens (
+  user_id      BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  token_hash   TEXT NOT NULL UNIQUE,
+  created_at   TEXT NOT NULL,
+  last_used_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS purchases (
   id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -22,9 +22,15 @@ export function AppShell() {
       <header className="safe-top sticky top-0 z-10 border-b border-line bg-surface/90 backdrop-blur">
         <div className="flex h-12 items-center justify-between px-4">
           <span className="font-semibold text-gold">GoldFolio</span>
-          <button onClick={() => void logout()} className="min-h-11 px-2 text-sm text-muted" title={user?.email}>
-            Đăng xuất
-          </button>
+          <div className="flex items-center">
+            {/* Widget màn hình chính (HOLD-UC02): ít dùng nên để ở header, không chiếm tab */}
+            <Link to="/widget" className="flex min-h-11 items-center px-2 text-sm text-muted">
+              Widget
+            </Link>
+            <button onClick={() => void logout()} className="min-h-11 px-2 text-sm text-muted" title={user?.email}>
+              Đăng xuất
+            </button>
+          </div>
         </div>
       </header>
 

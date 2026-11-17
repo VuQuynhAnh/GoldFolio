@@ -9,6 +9,7 @@ Sổ tài sản vàng bạc cá nhân. Ghi từng lần mua (thương hiệu, s�
 | `shared/` | Quy đổi khối lượng, tính tiền và lãi/lỗ, định dạng số và ngày giờ VN (dùng chung server + web) |
 | `server/` | Express + PostgreSQL (`pg`), API `/api/*`, adapter giá Phú Quý, lịch lấy giá |
 | `web/` | Vite + React + Tailwind 4 + Recharts, giao diện tối mobile-first (màu theo token trong `web/src/index.css`, font Be Vietnam Pro đóng gói sẵn): 3 tab dưới (Tổng quan / Biểu đồ / Chi tiết), nút + để thêm, form toàn màn hình |
+| `android/` | App Android nhỏ chỉ có widget màn hình chính (Kotlin, SDK chuẩn, không thư viện ngoài). GitHub Actions build APK khi `android/` đổi |
 
 ## Chạy
 
@@ -81,7 +82,7 @@ Server trả luôn giao diện web đã build (`web/dist`), nên chỉ cần m�
 
 ## API
 
-Mọi API trừ `/api/auth/*` cần đăng nhập (cookie `sid`). Lỗi trả `{ error, fields? }`, thông báo tiếng Việt.
+Mọi API trừ `/api/auth/*` và `GET /api/widget` cần đăng nhập (cookie `sid`). Lỗi trả `{ error, fields? }`, thông báo tiếng Việt.
 
 | Method · path | Việc |
 |---|---|
@@ -96,6 +97,18 @@ Mọi API trừ `/api/auth/*` cần đăng nhập (cookie `sid`). Lỗi trả `{
 | `POST /api/trends/refresh` | "Phân tích lại" `{ metal }`, tối đa 3 lần/ngày |
 | `GET /api/chat` | Số câu hỏi AI còn lại hôm nay |
 | `POST /api/chat` | Hỏi AI `{ messages: [{ role, content }] }` → `{ reply, questionsLeft }`; tối đa 20 câu/ngày, server không lưu nội dung |
+| `GET /api/widget/token`, `POST /api/widget/token`, `DELETE /api/widget/token` | Mã widget của mình: xem đã có chưa, tạo mới (trả mã đúng một lần, mã cũ hết hiệu lực), thu hồi |
+| `GET /api/widget` | Số liệu cho widget, xác thực bằng header `Authorization: Bearer <mã widget>` (không dùng cookie). Chỉ đọc; có sẵn chuỗi đã định dạng (`valueText`, `pnlText`, `price.text`, `priceTimeText`) |
+
+## Widget Android
+
+App `android/` hiện tổng tài sản, lãi/lỗ và giá mua vào · bán ra của vàng, bạc trên màn hình chính.
+
+- **Build:** workflow `.github/workflows/android-widget.yml` chạy khi đẩy thay đổi trong `android/` lên `main` (hoặc bấm Run workflow), đính `goldfolio-widget.apk` vào bản phát hành mới nhất (tag `widget-v<số>`).
+- **Cài:** trong GoldFolio vào **Widget** → Tạo mã widget → Chép mã kết nối; trên điện thoại tải APK ở Releases, cài, mở app, dán mã, Lưu, rồi thêm widget ra màn hình chính.
+- **Mã kết nối** = `<địa chỉ GoldFolio>#<mã widget>`. Server chỉ lưu bản băm SHA-256 của mã.
+- **Cập nhật:** Android tự làm mới khoảng 30 phút một lần; bấm dòng giờ trên widget để làm mới ngay. Lỗi mạng hoặc server đang ngủ thì widget giữ số cũ và ghi lỗi.
+- **Khoá ký:** chưa đặt Secrets thì APK ký bằng khoá debug của máy build, mỗi bản mới phải gỡ app cũ rồi cài lại (dán lại mã). Muốn cài đè, tạo keystore một lần (`keytool -genkeypair -v -keystore goldfolio.keystore -alias goldfolio -keyalg RSA -keysize 2048 -validity 10000`) rồi thêm 4 Secrets trong repo GitHub: `ANDROID_KEYSTORE_BASE64` (nội dung file đã base64), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. Không commit file keystore.
 
 ## Nguồn giá
 

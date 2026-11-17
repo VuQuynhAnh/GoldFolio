@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GoldFolio Widget</string>
+    <string name="app_brand">GoldFolio</string>
+    <string name="widget_description">Tổng tài sản, lãi/lỗ và giá vàng, bạc</string>
+
+    <string name="widget_not_connected">Chưa kết nối</string>
+    <string name="widget_open_app">Bấm để dán mã kết nối</string>
+    <string name="widget_loading">Đang tải…</string>
+    <string name="widget_refreshing">Đang cập nhật…</string>
+    <string name="widget_tap_refresh">Bấm để cập nhật ⟳</string>
+    <string name="widget_no_price">Chưa có giá</string>
+
+    <string name="title">Kết nối GoldFolio</string>
+    <string name="guide">Trong GoldFolio, vào Widget → Tạo mã widget → Chép mã kết nối, rồi dán vào ô dưới đây.</string>
+    <string name="code_hint">Dán mã kết nối</string>
+    <string name="paste">Dán</string>
+    <string name="save">Lưu</string>
+    <string name="pin">Thêm widget ra màn hình chính</string>
+    <string name="disconnect">Xoá kết nối</string>
+    <string name="not_connected">Chưa kết nối.</string>
+    <string name="connected_to">Đang kết nối tới %1$s</string>
+    <string name="code_invalid">Mã kết nối không đúng. Vào GoldFolio → Widget → Tạo mã widget rồi chép lại.</string>
+    <string name="checking">Đang kiểm tra kết nối… Nếu GoldFolio đang ngủ, có thể mất tới 1 phút.</string>
+    <string name="connect_ok">Đã kết nối. %1$s.\nGiữ ngón tay ở chỗ trống trên màn hình chính → Tiện ích → GoldFolio để thêm widget.</string>
+    <string name="connect_failed">Chưa kết nối được: %1$s</string>
+</resources>

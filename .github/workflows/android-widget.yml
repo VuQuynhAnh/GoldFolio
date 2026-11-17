@@ -1,0 +1,61 @@
+# Build app widget Android (HOLD-UC02) và đính APK vào bản phát hành mới nhất trên GitHub,
+# để tải thẳng về điện thoại. Không cần cài Android Studio trên máy.
+name: Android widget
+
+on:
+  push:
+    branches: [main]
+    paths: ["android/**", ".github/workflows/android-widget.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      # Có khoá ký trong Secrets thì ký bằng khoá cố định (cài đè bản cũ được);
+      # chưa có thì ký bằng khoá debug của máy build (cập nhật phải gỡ app cũ trước)
+      - name: Chuẩn bị khoá ký
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Chưa có ANDROID_KEYSTORE_BASE64, APK ký bằng khoá debug"
+          fi
+
+      - name: Build APK
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          gradle --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/goldfolio-widget.apk"
+
+      - name: Phát hành
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="widget-v${{ github.run_number }}"
+          gh release create "$tag" "$RUNNER_TEMP/goldfolio-widget.apk" \
+            --title "GoldFolio Widget 1.0.${{ github.run_number }}" \
+            --notes "Tải goldfolio-widget.apk về điện thoại Android rồi mở để cài. Hướng dẫn: GoldFolio → Widget." \
+            --target "${{ github.sha }}" --latest
