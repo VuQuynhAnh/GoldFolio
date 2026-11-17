@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.webkit.CookieManager
 import android.webkit.WebView
 import android.widget.FrameLayout
 import android.widget.ProgressBar
@@ -40,6 +41,16 @@ class MainActivity : Activity() {
         setContentView(root)
         WebScreen.setup(this, web, connection.origin) { loading -> progress.visibility = if (loading) View.VISIBLE else View.GONE }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl("${connection.origin}/")
+    }
+
+    /**
+     * Ghi cookie đăng nhập xuống máy mỗi khi app bị ẩn hay đóng. Đăng nhập trong web là gọi API ngầm,
+     * không tải trang mới, nên cookie mới chỉ nằm trong bộ nhớ tạm; đóng app trước khi webview tự ghi
+     * (vài chục giây) là mất, mở lại phải đăng nhập lại.
+     */
+    override fun onPause() {
+        super.onPause()
+        CookieManager.getInstance().flush()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
