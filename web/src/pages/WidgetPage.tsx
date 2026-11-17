@@ -129,12 +129,12 @@ export function WidgetPage() {
         <ol className="list-decimal space-y-2 pl-5">
           <li>
             <a href={APK_URL} target="_blank" rel="noreferrer" className="font-medium text-gold underline">
-              Tải file GoldFolio Widget (.apk)
+              Tải app GoldFolio (.apk)
             </a>{" "}
             ở bản phát hành mới nhất.
           </li>
           <li>Mở file vừa tải, Android hỏi cho phép cài từ nguồn này thì bấm Cho phép, rồi Cài đặt.</li>
-          <li>Mở app GoldFolio Widget, dán mã kết nối ở trên, bấm Lưu.</li>
+          <li>Mở app GoldFolio, dán mã kết nối ở trên, bấm Lưu. Từ đó mở app là vào GoldFolio luôn, không cần mở trình duyệt.</li>
           <li>Giữ ngón tay ở chỗ trống trên màn hình chính → Tiện ích (Widget) → GoldFolio, kéo ra màn hình.</li>
         </ol>
         <p className="mt-3 text-xs text-muted">

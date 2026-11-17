@@ -6,7 +6,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONException
@@ -14,7 +13,7 @@ import org.json.JSONObject
 
 /**
  * Widget 4x2: tổng tài sản, lãi/lỗ, mỗi kim loại một dòng giá mua vào · bán ra và lãi/lỗ.
- * Chữ đã được server định dạng sẵn, widget chỉ việc hiện.
+ * Chữ đã được server định dạng sẵn, widget chỉ việc hiện. Bấm vào số liệu thì mở app (GoldFolio trong app).
  */
 class GoldWidgetProvider : AppWidgetProvider() {
 
@@ -57,10 +56,8 @@ class GoldWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.status, refresh)
 
             if (connection == null) {
-                // Chưa dán mã: bấm vào widget mở màn hình cấu hình
-                views.setOnClickPendingIntent(R.id.body, PendingIntent.getActivity(
-                    ctx, 1, Intent(ctx, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
-                ))
+                // Chưa dán mã: bấm vào widget mở app, app tự mở màn hình dán mã
+                views.setOnClickPendingIntent(R.id.body, openApp(ctx))
                 views.setTextViewText(R.id.total_value, ctx.getString(R.string.widget_not_connected))
                 views.setTextViewText(R.id.total_pnl, ctx.getString(R.string.widget_open_app))
                 views.setTextColor(R.id.total_pnl, MUTED)
@@ -69,10 +66,8 @@ class GoldWidgetProvider : AppWidgetProvider() {
                 return views
             }
 
-            // Bấm vào số liệu: mở GoldFolio trên trình duyệt
-            views.setOnClickPendingIntent(R.id.body, PendingIntent.getActivity(
-                ctx, 2, Intent(Intent.ACTION_VIEW, Uri.parse(connection.origin)), PendingIntent.FLAG_IMMUTABLE,
-            ))
+            // Bấm vào số liệu: mở GoldFolio ngay trong app, không phải mở trình duyệt
+            views.setOnClickPendingIntent(R.id.body, openApp(ctx))
 
             val data = Prefs.data(ctx)?.let {
                 try {
@@ -127,6 +122,10 @@ class GoldWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.status, status)
             return views
         }
+
+        private fun openApp(ctx: Context): PendingIntent = PendingIntent.getActivity(
+            ctx, 1, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE,
+        )
 
         private fun colorOf(trend: String): Int = when (trend) {
             "gain" -> GAIN

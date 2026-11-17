@@ -9,7 +9,7 @@ Sổ tài sản vàng bạc cá nhân. Ghi từng lần mua (thương hiệu, s�
 | `shared/` | Quy đổi khối lượng, tính tiền và lãi/lỗ, định dạng số và ngày giờ VN (dùng chung server + web) |
 | `server/` | Express + PostgreSQL (`pg`), API `/api/*`, adapter giá Phú Quý, lịch lấy giá |
 | `web/` | Vite + React + Tailwind 4 + Recharts, giao diện tối mobile-first (màu theo token trong `web/src/index.css`, font Be Vietnam Pro đóng gói sẵn): 3 tab dưới (Tổng quan / Biểu đồ / Chi tiết), nút + để thêm, form toàn màn hình |
-| `android/` | App Android nhỏ chỉ có widget màn hình chính (Kotlin, SDK chuẩn, không thư viện ngoài). GitHub Actions build APK khi `android/` đổi |
+| `android/` | App Android: GoldFolio trong app (webview) và widget màn hình chính (Kotlin, SDK chuẩn, không thư viện ngoài). GitHub Actions build APK khi `android/` đổi |
 
 ## Chạy
 
@@ -106,6 +106,7 @@ App `android/` hiện tổng tài sản, lãi/lỗ và giá mua vào · bán ra 
 
 - **Build:** workflow `.github/workflows/android-widget.yml` chạy khi đẩy thay đổi trong `android/` lên `main` (hoặc bấm Run workflow), đính `goldfolio-widget.apk` vào bản phát hành mới nhất (tag `widget-v<số>`).
 - **Cài:** trong GoldFolio vào **Widget** → Tạo mã widget → Chép mã kết nối; trên điện thoại tải APK ở Releases, cài, mở app, dán mã, Lưu, rồi thêm widget ra màn hình chính.
+- **App = GoldFolio trong app:** sau khi dán mã, mở app (hoặc bấm vào số liệu trên widget) là mở GoldFolio trong app (webview), đăng nhập một lần rồi nhớ. Menu ⋮ có "Cài đặt widget" (dán lại mã) và "Thêm widget".
 - **Mã kết nối** = `<địa chỉ GoldFolio>#<mã widget>`. Server chỉ lưu bản băm SHA-256 của mã.
 - **Cập nhật:** Android tự làm mới khoảng 30 phút một lần; bấm dòng giờ trên widget để làm mới ngay. Lỗi mạng hoặc server đang ngủ thì widget giữ số cũ và ghi lỗi.
 - **Khoá ký:** chưa đặt Secrets thì APK ký bằng khoá debug của máy build, mỗi bản mới phải gỡ app cũ rồi cài lại (dán lại mã). Muốn cài đè, tạo keystore một lần (`keytool -genkeypair -v -keystore goldfolio.keystore -alias goldfolio -keyalg RSA -keysize 2048 -validity 10000`) rồi thêm 4 Secrets trong repo GitHub: `ANDROID_KEYSTORE_BASE64` (nội dung file đã base64), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. Không commit file keystore.

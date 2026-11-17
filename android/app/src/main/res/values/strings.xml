@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GoldFolio Widget</string>
+    <string name="app_name">GoldFolio</string>
     <string name="app_brand">GoldFolio</string>
     <string name="widget_description">Tổng tài sản, lãi/lỗ và giá vàng, bạc</string>
 
@@ -18,6 +18,8 @@
     <string name="save">Lưu</string>
     <string name="pin">Thêm widget ra màn hình chính</string>
     <string name="disconnect">Xoá kết nối</string>
+    <string name="open_app">Mở GoldFolio</string>
+    <string name="widget_settings">Cài đặt widget</string>
     <string name="not_connected">Chưa kết nối.</string>
     <string name="connected_to">Đang kết nối tới %1$s</string>
     <string name="code_invalid">Mã kết nối không đúng. Vào GoldFolio → Widget → Tạo mã widget rồi chép lại.</string>

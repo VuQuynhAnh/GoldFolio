@@ -67,6 +67,14 @@
             android:textSize="15sp" />
 
         <Button
+            android:id="@+id/open"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:minHeight="48dp"
+            android:text="@string/open_app" />
+
+        <Button
             android:id="@+id/pin"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -2,87 +2,76 @@ package app.goldfolio.widget
 
 import android.app.Activity
 import android.appwidget.AppWidgetManager
-import android.content.ClipboardManager
 import android.content.ComponentName
+import android.content.Intent
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
-import org.json.JSONObject
+import android.webkit.WebView
+import android.widget.FrameLayout
+import android.widget.ProgressBar
 
 /**
- * Màn hình cấu hình: dán mã kết nối (tạo ở GoldFolio → Widget), kiểm tra kết nối,
- * rồi thêm widget ra màn hình chính.
+ * Mở app (hoặc bấm vào widget) là mở GoldFolio ngay trong app (HOLD-UC02/BR-7), đăng nhập một lần
+ * rồi nhớ cookie, không phải mở trình duyệt. Địa chỉ GoldFolio lấy từ mã kết nối; chưa dán mã thì
+ * mở màn hình cài đặt widget trước.
  */
 class MainActivity : Activity() {
-    private lateinit var input: EditText
-    private lateinit var status: TextView
-    private lateinit var save: Button
-    private lateinit var pin: Button
-    private lateinit var disconnect: Button
+    private lateinit var web: WebView
+    private lateinit var progress: ProgressBar
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        input = findViewById(R.id.code)
-        status = findViewById(R.id.status)
-        save = findViewById(R.id.save)
-        pin = findViewById(R.id.pin)
-        disconnect = findViewById(R.id.disconnect)
-
-        findViewById<Button>(R.id.paste).setOnClickListener {
-            val clip = getSystemService(ClipboardManager::class.java).primaryClip
-            val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
-            if (!text.isNullOrBlank()) input.setText(text)
-        }
-        save.setOnClickListener { connect() }
-        pin.setOnClickListener {
-            getSystemService(AppWidgetManager::class.java)
-                .requestPinAppWidget(ComponentName(this, GoldWidgetProvider::class.java), null, null)
-        }
-        disconnect.setOnClickListener {
-            Prefs.clear(this)
-            GoldWidgetProvider.render(this)
-            showState()
-        }
-        showState()
-    }
-
-    private fun showState() {
         val connection = Prefs.connection(this)
-        val canPin = getSystemService(AppWidgetManager::class.java).isRequestPinAppWidgetSupported
-        pin.visibility = if (connection != null && canPin) View.VISIBLE else View.GONE
-        disconnect.visibility = if (connection != null) View.VISIBLE else View.GONE
-        status.text = if (connection != null) getString(R.string.connected_to, connection.origin) else getString(R.string.not_connected)
-    }
-
-    private fun connect() {
-        val connection = Prefs.parse(input.text.toString())
         if (connection == null) {
-            status.text = getString(R.string.code_invalid)
+            startActivity(Intent(this, WidgetSetupActivity::class.java))
+            finish()
             return
         }
-        Prefs.saveConnection(this, connection)
-        input.setText("")
-        save.isEnabled = false
-        status.text = getString(R.string.checking)
-        Thread {
-            val message = try {
-                val body = WidgetApi.fetch(connection)
-                Prefs.saveData(this, body)
-                val total = JSONObject(body).optJSONObject("total")?.optString("valueText") ?: ""
-                getString(R.string.connect_ok, total)
-            } catch (e: WidgetApiException) {
-                Prefs.saveError(this, e.message ?: "")
-                getString(R.string.connect_failed, e.message)
-            }
-            GoldWidgetProvider.render(this)
-            runOnUiThread {
-                save.isEnabled = true
-                showState()
-                status.text = message
-            }
-        }.start()
+        web = WebView(this)
+        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { isIndeterminate = true }
+        val root = FrameLayout(this).apply {
+            fitsSystemWindows = true
+            setBackgroundColor(0xFF0F0F10.toInt())
+            addView(web, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            addView(progress, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
+        }
+        setContentView(root)
+        WebScreen.setup(this, web, connection.origin) { loading -> progress.visibility = if (loading) View.VISIBLE else View.GONE }
+        if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl("${connection.origin}/")
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        if (::web.isInitialized) web.saveState(outState)
+    }
+
+    /** Nút back của điện thoại lùi trang trong web trước, hết trang mới thoát app */
+    @Deprecated("Vẫn chạy khi chưa bật cử chỉ back dự đoán")
+    override fun onBackPressed() {
+        if (::web.isInitialized && web.canGoBack()) web.goBack() else super.onBackPressed()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu.add(0, MENU_SETUP, 0, getString(R.string.widget_settings))
+        menu.add(0, MENU_PIN, 1, getString(R.string.pin))
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            MENU_SETUP -> startActivity(Intent(this, WidgetSetupActivity::class.java))
+            MENU_PIN -> getSystemService(AppWidgetManager::class.java)
+                ?.takeIf { it.isRequestPinAppWidgetSupported }
+                ?.requestPinAppWidget(ComponentName(this, GoldWidgetProvider::class.java), null, null)
+            else -> return super.onOptionsItemSelected(item)
+        }
+        return true
+    }
+
+    companion object {
+        private const val MENU_SETUP = 1
+        private const val MENU_PIN = 2
     }
 }
