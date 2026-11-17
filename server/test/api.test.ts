@@ -52,6 +52,14 @@ describe("tài khoản", () => {
     expect(bad.body.error).toBe("Email hoặc mật khẩu không đúng");
   });
 
+  it("email có chữ s đăng ký được; email sai dạng thì báo lỗi ở ô email", async () => {
+    await request(app).post("/api/auth/register").send({ email: "test.user@gmail.com", password: "matkhau123" }).expect(201);
+    for (const email of ["khong-co-a-cong", "a b@example.com", "a@example", "@example.com"]) {
+      const res = await request(app).post("/api/auth/register").send({ email, password: "matkhau123" }).expect(400);
+      expect(res.body.fields.email).toBe("Email không hợp lệ");
+    }
+  });
+
   it("mật khẩu quá ngắn", async () => {
     const res = await request(app).post("/api/auth/register").send({ email: "b@example.com", password: "123" });
     expect(res.status).toBe(400);

@@ -63,7 +63,7 @@ export function authRouter(db: Db): Router {
     asyncHandler(async (req, res) => {
       const { email, password } = readCredentials(req.body);
       const fields: Record<string, string> = {};
-      if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(email)) fields.email = "Email không hợp lệ";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fields.email = "Email không hợp lệ";
       if (password.length < 8) fields.password = "Mật khẩu tối thiểu 8 ký tự";
       if (Object.keys(fields).length) throw new HttpError(400, Object.values(fields)[0]!, fields);
       if (await db.one("SELECT 1 FROM users WHERE email = $1", [email])) throw new HttpError(409, EMAIL_TAKEN, { email: EMAIL_TAKEN });
