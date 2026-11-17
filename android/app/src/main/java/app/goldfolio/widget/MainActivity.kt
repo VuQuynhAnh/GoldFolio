@@ -41,6 +41,7 @@ class MainActivity : Activity() {
         setContentView(root)
         WebScreen.setup(this, web, connection.origin) { loading -> progress.visibility = if (loading) View.VISIBLE else View.GONE }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl("${connection.origin}/")
+        Updater.checkDaily(this)
     }
 
     /**
@@ -67,12 +68,14 @@ class MainActivity : Activity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menu.add(0, MENU_SETUP, 0, getString(R.string.widget_settings))
         menu.add(0, MENU_PIN, 1, getString(R.string.pin))
+        menu.add(0, MENU_UPDATE, 2, "Kiểm tra cập nhật (bản 1.0.${Updater.currentVersion(this)})")
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             MENU_SETUP -> startActivity(Intent(this, WidgetSetupActivity::class.java))
+            MENU_UPDATE -> Updater.check(this, manual = true)
             MENU_PIN -> getSystemService(AppWidgetManager::class.java)
                 ?.takeIf { it.isRequestPinAppWidgetSupported }
                 ?.requestPinAppWidget(ComponentName(this, GoldWidgetProvider::class.java), null, null)
@@ -84,5 +87,6 @@ class MainActivity : Activity() {
     companion object {
         private const val MENU_SETUP = 1
         private const val MENU_PIN = 2
+        private const val MENU_UPDATE = 3
     }
 }

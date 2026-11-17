@@ -109,7 +109,7 @@ App `android/` hiện tổng tài sản, lãi/lỗ và giá mua vào · bán ra 
 - **App = GoldFolio trong app:** sau khi dán mã, mở app (hoặc bấm vào số liệu trên widget) là mở GoldFolio trong app (webview), đăng nhập một lần rồi nhớ. Menu ⋮ có "Cài đặt widget" (dán lại mã) và "Thêm widget".
 - **Mã kết nối** = `<địa chỉ GoldFolio>#<mã widget>`. Server chỉ lưu bản băm SHA-256 của mã.
 - **Cập nhật:** Android tự làm mới khoảng 30 phút một lần; bấm dòng giờ trên widget để làm mới ngay. Lỗi mạng hoặc server đang ngủ thì widget giữ số cũ và ghi lỗi.
-- **Khoá ký:** chưa đặt Secrets thì APK ký bằng khoá debug của máy build, mỗi bản mới phải gỡ app cũ rồi cài lại (dán lại mã). Muốn cài đè, tạo keystore một lần (`keytool -genkeypair -v -keystore goldfolio.keystore -alias goldfolio -keyalg RSA -keysize 2048 -validity 10000`) rồi thêm 4 Secrets trong repo GitHub: `ANDROID_KEYSTORE_BASE64` (nội dung file đã base64), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. Không commit file keystore.
+- **Khoá ký và cập nhật trong app:** đặt một Secret `ANDROID_KEYSTORE_PASSWORD` (mật khẩu tự đặt, dài và khó đoán) trong GitHub repo: Settings → Secrets and variables → Actions → New repository secret. Lần build đầu có mật khẩu, workflow tự tạo khoá ký cố định, khoá bằng mật khẩu đó và lưu vào repo (`android/release-key.p12`, commit `[skip ci]`). Từ đó bản mới cài đè được bản cũ: app tự hỏi "Có bản mới" mỗi ngày một lần, hoặc menu ⋮ → "Kiểm tra cập nhật", bấm Cập nhật là tải APK và mở màn cài của Android. Chuyển từ bản ký khoá debug sang bản ký khoá cố định thì phải gỡ app một lần cuối. Chưa đặt Secret thì APK ký bằng khoá debug, mỗi bản mới phải gỡ app cũ.
 
 ## Nguồn giá
 

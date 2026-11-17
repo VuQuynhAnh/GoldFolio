@@ -3,8 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// Khoá ký cố định lấy từ biến môi trường (GitHub Secrets) để bản mới cài đè được bản cũ.
-// Không có thì ký bằng khoá debug: cài được, nhưng mỗi lần cập nhật phải gỡ app cũ trước.
+// Khoá ký cố định (android/release-key.p12, CI tạo một lần, khoá bằng Secret ANDROID_KEYSTORE_PASSWORD)
+// để bản mới cài đè được bản cũ. Không có thì ký bằng khoá debug: mỗi bản mới phải gỡ app cũ.
 val releaseKeystore = System.getenv("ANDROID_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
 
 android {
@@ -24,6 +24,7 @@ android {
         if (releaseKeystore != null) {
             create("release") {
                 storeFile = releaseKeystore
+                storeType = "pkcs12"
                 storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("ANDROID_KEY_ALIAS")
                 keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
